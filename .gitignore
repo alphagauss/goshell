@@ -2,6 +2,7 @@
 .task/
 bin/
 frontend/dist/
+frontend/tsconfig.tsbuildinfo
 *.exe
 *.syso
 
