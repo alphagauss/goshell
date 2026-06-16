@@ -583,6 +583,7 @@ input {
   display: flex;
   gap: 6px;
   margin-bottom: 10px;
+  overflow-x: auto;
 }
 
 .ssh-tabs > .tabs-content {
@@ -693,6 +694,97 @@ input {
   border: 1px solid var(--border-default);
   border-radius: 8px;
   white-space: pre-wrap;
+}
+
+.chat-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 260px;
+  max-height: 52vh;
+  overflow: auto;
+}
+
+.chat-message {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.chat-message span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.chat-message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.chat-message--user {
+  background: var(--primary-bg);
+  border-color: var(--border-accent);
+}
+
+.composer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.composer-row input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+}
+
+.forward-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px minmax(0, 1fr) 80px auto;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.forward-form input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+}
+
+.guardian-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 9px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.guardian-row > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.guardian-row span {
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.status-pill--running {
+  color: var(--accent-success);
+  background: var(--success-bg);
+  border-color: var(--border-success);
 }
 
 .ui-button {

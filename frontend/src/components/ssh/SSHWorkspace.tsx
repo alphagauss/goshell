@@ -1,11 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import { Files, Monitor, PlaySquare, Terminal as TerminalIcon } from "lucide-react";
+import {
+  Bot,
+  Files,
+  Flame,
+  ListRestart,
+  Monitor,
+  PlaySquare,
+  ScrollText,
+  Terminal as TerminalIcon,
+  Waypoints,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Titlebar } from "@/components/Titlebar";
 import { CommandPanel } from "@/components/ssh/CommandPanel";
+import { AIChatPanel } from "@/components/ssh/AIChatPanel";
 import { FilePanel } from "@/components/ssh/FilePanel";
+import { FirewallPanel } from "@/components/ssh/FirewallPanel";
+import { LogsPanel } from "@/components/ssh/LogsPanel";
 import { MonitorPanel } from "@/components/ssh/MonitorPanel";
+import { PortForwardPanel } from "@/components/ssh/PortForwardPanel";
+import { ProcessGuardPanel } from "@/components/ssh/ProcessGuardPanel";
 import { TerminalPanel } from "@/components/ssh/TerminalPanel";
 import { StatusLine } from "@/components/StatusLine";
 import { eventPayload, eventsApi, sshApi, type ConnectionInfo, type GroupUpdatedEvent } from "@/lib/wails";
@@ -107,6 +122,26 @@ export function SSHWorkspace({
                 <Monitor size={15} />
                 <span>监控</span>
               </TabsTrigger>
+              <TabsTrigger value="ai">
+                <Bot size={15} />
+                <span>AI</span>
+              </TabsTrigger>
+              <TabsTrigger value="forward">
+                <Waypoints size={15} />
+                <span>转发</span>
+              </TabsTrigger>
+              <TabsTrigger value="firewall">
+                <Flame size={15} />
+                <span>防火墙</span>
+              </TabsTrigger>
+              <TabsTrigger value="guard">
+                <ListRestart size={15} />
+                <span>守护</span>
+              </TabsTrigger>
+              <TabsTrigger value="logs">
+                <ScrollText size={15} />
+                <span>日志</span>
+              </TabsTrigger>
               <TabsTrigger value="commands">
                 <PlaySquare size={15} />
                 <span>命令</span>
@@ -120,6 +155,21 @@ export function SSHWorkspace({
             </TabsContent>
             <TabsContent value="monitor">
               <MonitorPanel connID={activeConnection.id} />
+            </TabsContent>
+            <TabsContent value="ai">
+              <AIChatPanel connID={activeConnection.id} />
+            </TabsContent>
+            <TabsContent value="forward">
+              <PortForwardPanel connID={activeConnection.id} />
+            </TabsContent>
+            <TabsContent value="firewall">
+              <FirewallPanel connID={activeConnection.id} />
+            </TabsContent>
+            <TabsContent value="guard">
+              <ProcessGuardPanel connID={activeConnection.id} />
+            </TabsContent>
+            <TabsContent value="logs">
+              <LogsPanel connID={activeConnection.id} />
             </TabsContent>
             <TabsContent value="commands">
               <CommandPanel connID={activeConnection.id} />
