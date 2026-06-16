@@ -24,12 +24,18 @@ export const sshApi = {
   createAndConnect: (config: SSHConfig) => SSHService.CreateAndConnect(config),
   createAndConnectWithGroup: (config: SSHConfig, groupID: string) =>
     SSHService.CreateAndConnectWithGroup(config, groupID),
+  connect: (connID: string, config: SSHConfig) => SSHService.Connect(connID, config),
   openSSHWindow: (groupID: string, groupName: string, activeConnID: string) =>
     SSHService.OpenSSHWindow(groupID, groupName, activeConnID),
   disconnect: (connID: string) => SSHService.Disconnect(connID),
   reconnect: (connID: string) => SSHService.Reconnect(connID),
   getAllConnections: () => SSHService.GetAllConnections() as Promise<ConnectionInfo[]>,
+  getConnection: (id: string) => SSHService.GetConnection(id) as Promise<ConnectionInfo | null>,
+  updateConnection: (connection: ConnectionInfo) => SSHService.UpdateConnection(connection),
+  addConnection: (connection: ConnectionInfo) => SSHService.AddConnection(connection),
   getAllGroups: () => SSHService.GetAllGroups(),
+  getGroupConnectionInfos: (groupID: string) =>
+    SSHService.GetGroupConnectionInfos(groupID) as Promise<ConnectionInfo[]>,
   getDefaultGroupID: () => SSHService.GetDefaultGroupID(),
   createGroup: (name: string) => SSHService.CreateGroup(name),
   saveConnection: (id: string) => SSHService.SaveConnection(id),
@@ -44,6 +50,7 @@ export const sshApi = {
     SSHService.CloseShellSessionByID(connID, sessionID),
   listFiles: (connID: string, path: string) => SSHService.ListFiles(connID, path),
   executeCommand: (connID: string, command: string) => SSHService.ExecuteCommand(connID, command),
+  runCommand: (connID: string, command: string) => SSHService.RunCommand(connID, command),
   getSystemStats: (connID: string) => SSHService.GetSystemStats(connID),
   getProcessList: (connID: string) => SSHService.GetProcessList(connID),
   clearWindowPositions: () => SSHService.ClearWindowPositions(),

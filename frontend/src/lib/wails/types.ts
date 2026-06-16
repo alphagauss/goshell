@@ -19,8 +19,8 @@ export interface ConnectionInfo extends SSHConfig {
 export interface SSHGroup {
   id: string;
   name: string;
-  connections: string[];
-  isDefault?: boolean;
+  conn_ids?: string[];
+  is_default?: boolean;
 }
 
 export interface AppConfig {
@@ -40,7 +40,9 @@ export interface AppConfig {
     autoSyncFrom?: boolean;
   };
   shortcuts?: Record<string, unknown>;
-  advanced?: Record<string, unknown>;
+  advanced?: {
+    groupBehavior?: "join_default" | "new_window" | "prompt";
+  };
   ssh?: Record<string, unknown>;
 }
 

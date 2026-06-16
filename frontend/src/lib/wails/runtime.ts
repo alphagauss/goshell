@@ -33,3 +33,11 @@ export const windowApi = {
 };
 
 export const dialogsApi = Dialogs;
+
+export function eventPayload<T>(event: T | { data?: T }): T {
+  if (event && typeof event === "object" && "data" in event) {
+    return (event as { data?: T }).data as T;
+  }
+
+  return event as T;
+}
