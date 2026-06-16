@@ -1,626 +1,1083 @@
 # MIGRATION_NOTES
 
-Last updated: 2026-06-16
+最后更新：2026-06-16
+
+## 1. 文档目的
+
+本文件用于跟踪 `alphagauss/goshell`（本地位置： `D:\opensource\qssh\`） 从 `nanxiangxi/qssh` 迁移到 React 前端后的功能补齐工作。
+
+当前项目已经完成了 Go/Wails 侧的代码位置调整，以及 React + TypeScript + Vite 的基础前端框架。但当前 React 前端还不能视为 qssh Vue 前端的功能等价迁移版本。后续迁移应以本文件为总账本，逐项恢复源项目的前端功能、交互、状态管理、事件流和边界处理。
+
+## 2. 完整迁移口径
+
+本次迁移的目标不是简单“能打开窗口、能连上 SSH”，而是：
+
+1. 以后端能力为基准，React 前端应完整覆盖原 qssh Vue 前端已经实现的用户功能。
+2. Vue/Pinia 代码不要求原样照搬，但用户可见功能、关键交互、Wails API 调用、事件订阅、状态生命周期必须等价。
+3. 如果某个原功能决定不迁移，必须在本文档中明确标记为“不迁移/暂缓迁移”，并说明原因。
+4. 每个模块必须有“源项目入口、当前 React 落点、缺失功能、迁移步骤、验收标准”。
+5. “完成”不以 UI 外壳存在为准，而以真实可操作、可恢复、可测试为准。
+
+## 3. 当前已完成内容
+
+### 3.1 Go/Wails 侧
+
+- 已将 qssh 后端相关代码迁移到 goshell 的新目录结构中。
+- 已保留 Wails v3 调用方式。
+- 已生成或接入前端 bindings。
+- 后端功能原则上作为能力来源，不是本阶段重构重点。
+
+### 3.2 React 前端基础
+
+- 已建立 React + TypeScript + Vite 前端。
+- 已建立基础页面、标题栏、状态行、按钮、Tabs 等 UI 基础组件。
+- 已有首页连接表单、连接列表、设置面板、SSH 工作区、终端面板、文件面板、监控面板、AI 面板、端口转发、防火墙、进程守护、日志、命令面板等 React 外壳。
+- 已能调用部分 Wails API 进行连接、打开 SSH 窗口、启动 shell session、列文件等基础操作。
+
+### 3.3 当前不能视为完成的原因
+
+当前 React 版更接近“最小可用骨架”，不是 qssh Vue 前端的完整功能复刻。尤其是以下能力尚未完成：
+
+- Dockview 多面板布局与右键菜单。
+- 多终端 session 管理。
+- 结构化终端、命令块、命令历史、补全、搜索、录制、交互式临时终端。
+- 完整 SFTP 文件管理器。
+- 完整 AI 助手、AI 配置、模型列表、审批、工具执行、终端联动。
+- 批量命令面板。
+- 完整端口转发管理，包括 local/remote、启动/停止/编辑/删除、流量统计。
+- 完整设置页，包括终端设置、快捷键、高级分组行为、云同步、导入导出。
+- 原项目 store 和 utils 的 React 等价层。
+- 全局消息、确认弹窗、日志系统、危险命令确认。
 
-## 目标
+## 4. 迁移基准与文件映射总表
+
+| 模块 | qssh 源文件/目录 | goshell 当前落点 | 当前状态 | 迁移目标 |
+|---|---|---|---|---|
+| 首页框架 | `frontend/src/views/Home/*` | `frontend/src/components/home/*`、`App.tsx` | 部分完成 | 恢复首页导航、连接流、设置、云端、导入导出 |
+| 新建连接 | `views/Home/NewConnection.vue`、`ConnectionOptionsDialog.vue` | `components/home/ConnectionForm.tsx` | 部分完成 | 恢复已有窗口时的 prompt/join_default/new_window 分支 |
+| 连接列表 | `stores/sshConnections.js`、Home 相关组件 | `ConnectionsPanel.tsx` | 部分完成 | 恢复连接分组、保存、编辑、打开策略、状态刷新 |
+| 设置 | `views/Home/Settings.vue` | `SettingsPanel.tsx` | 严重缺失 | 恢复终端、快捷键、高级、窗口、云端、导入导出设置 |
+| 云端 | `CloudPanel.vue`、`utils/cloudClient.js`、`CloudService` | `CloudPanel.tsx` 或 Settings 内嵌 | 未等价 | 明确是否保留私有云端同步；如保留，完整迁移 |
+| SSH 工作区 | `views/SSH/Terminal.vue`、`layout/DockviewLayout.vue` | `SSHWorkspace.tsx` | 严重偏离 | 从 Radix Tabs 改为 React Dockview 或等价多面板布局 |
+| 顶部书签栏 | `layout/TopBookmarkBar.vue` | 缺失 | 缺失 | 恢复快速连接/书签入口 |
+| 左/右/底部工具栏 | `LeftPanel.vue`、`RightToolbar.vue`、`BottomToolbar.vue` | 缺失或分散 | 缺失 | 恢复面板开关、状态、快捷操作 |
+| 结构化终端 | `panels/Terminal/StructuredTerminalPanel.vue` | `TerminalPanel.tsx` | 骨架 | 恢复结构化/经典双模式与完整终端能力 |
+| 终端子组件 | `panels/Terminal/components/*` | 缺失 | 缺失 | 迁移 TerminalBlock、CompletionPopup、CommandHistoryDialog 等 |
+| 终端 composables | `panels/Terminal/composables/*` | 缺失 | 缺失 | 迁移为 React hooks |
+| 终端工具 | `panels/Terminal/utils/*` | 缺失 | 缺失 | 迁移 sessionManager、highlightAddon 等 |
+| 文件管理器 | `panels/FileManager/*` | `FilePanel.tsx` | 骨架 | 恢复完整 SFTP 管理器 |
+| 监控 | `panels/MonitorPanel.vue` | `MonitorPanel.tsx` | 部分 | 恢复图表/刷新/进程资源/网络等源功能 |
+| AI 助手 | `panels/AIChatPanel.vue`、`utils/aiToolExecutor.js` | `AIChatPanel.tsx` | 骨架 | 恢复设置、模型、流式、审批、工具、终端联动 |
+| 批量命令 | `panels/BatchCommandPanel.vue` | `CommandPanel.tsx` | 不等价 | 恢复多连接批量命令执行 |
+| 端口转发 | `panels/PortForwardPanel.vue` | `PortForwardPanel.tsx` | 部分 | 恢复 local/remote、启停、编辑、删除、统计 |
+| 防火墙 | `panels/FirewallPanel.vue` | `FirewallPanel.tsx` | 部分 | 恢复规则读取、添加、删除、启停、状态识别 |
+| 进程守护 | `panels/ProcessGuardPanel.vue` | `ProcessGuardPanel.tsx` | 部分 | 恢复服务/进程守护规则和操作 |
+| 日志 | `panels/LogsPanel.vue`、`utils/logger.js` | `LogsPanel.tsx` | 不等价 | 恢复应用日志、操作日志、终端命令日志 |
+| 状态管理 | `stores/*` | React state 分散 | 缺失 | 建立 React store/hooks，避免每个面板各自造状态 |
+| 工具函数 | `utils/*` | `lib/*` 少量 | 缺失 | 迁移 message、confirm、logger、sshEvents、commandRunner 等 |
+| 全局样式 | `styles/*`、各 Vue scoped style | `styles/*` | 部分 | 恢复主题变量、Dockview、终端、文件管理器、弹窗样式 |
+
+## 5. 基础设施迁移清单
+
+### 5.1 前端依赖差异
 
-本项目目标是把 `D:\opensource\qssh\` 完整迁移到当前仓库 `D:\project\goshell\`：
+源项目前端依赖包含以下高级能力相关库：
+
+- `dockview-vue`：多面板布局。
+- `xterm` 及 `xterm-addon-fit/search/serialize/web-links`：终端、搜索、序列化、链接识别。
+- `marked`、`highlight.js`：AI Markdown 和代码高亮。
+- `jszip`：批量下载/压缩相关能力。
+- `monaco-editor`、CodeMirror 相关包：文件预览/编辑、代码编辑。
+- `pinia`：全局状态管理。
+- `splitpanes`、`vue-splitpane`：分栏布局。
 
-- 后端继续使用 Go，项目结构整理到 `internal/` 下，例如 `internal/ai/`、`internal/cloud/`、`internal/ssh/`、`internal/wailsapi/`。
-- Wails 桌面配置先平移，保持窗口、托盘、运行时绑定等基础行为可用。
-- 前端从 Vue 迁移为 React，技术栈为 React + TypeScript + Vite + Radix，样式先平移源 Vue 项目的视觉效果。
-- 前端实现要以 `D:\opensource\qssh\` 为功能基准，不做兼容 Vue 的折中代码。
-- 先设计并稳定 Wails API 适配层，再逐步迁移页面和交互。
+当前 React 依赖主要是 Radix UI、React、lucide-react、`@xterm/xterm`、`@xterm/addon-fit`、`@xterm/addon-web-links`。后续需要补齐或明确替代方案：
 
-本文件记录迁移现状、已完成工作、源项目功能清单、当前 React 缺口和后续待办。当前阶段只整理文档，不修改实现代码。
+- Dockview：建议使用 `dockview` 的 React 版本或直接使用官方 React 适配能力。
+- xterm 搜索：补 `@xterm/addon-search`。
+- xterm 序列化/录制：评估 `@xterm/addon-serialize` 或自实现。
+- Markdown/代码高亮：补 `marked`、`highlight.js`。
+- 文件编辑器：选 CodeMirror 6 或 Monaco，建议优先 CodeMirror 6，体积更轻。
+- 批量下载/压缩：补 `jszip`，或确认后端已负责压缩。
+- React 状态层：建议用 Zustand，或先用 Context + reducer，但不要继续把复杂状态散落在组件内部。
 
-## 已完成工作
+### 5.2 Wails API 与类型层
 
-### 阶段 1：Go/Wails 框架迁移
+必须先统一 `frontend/src/lib/wails.ts` 或等价 API 封装：
 
-提交：`ff08c2e chore: migrate go wails scaffold`
+- 所有后端服务方法必须按模块拆分：`sshApi`、`configApi`、`aiApi`、`portForwardApi`、`cloudApi`、`eventsApi`。
+- 所有事件 payload 必须统一大小写：`connID/connId`、`sessionID/sessionId`、`groupID/groupId` 不允许在不同组件里混用。
+- 为所有关键模型补 TypeScript 类型：`SSHConfig`、`ConnectionInfo`、`SSHGroup`、`FileInfo`、`ForwardItem`、`AIConfig`、`ChatMessage`、`TerminalSession`、`LogEntry`。
+- 为 FriendlyError 保留统一错误解析，避免每个面板重复写错误分支。
+- 所有 `Events.On` 必须有对应的卸载函数或安全 `Off` 封装，防止窗口重复打开后多次监听。
 
-- 已把源项目后端核心 Go 代码迁移到 `internal/` 结构。
-- 已建立 `internal/wailsapi/` 作为 Wails 应用装配层。
-- 已保留 Wails 窗口、事件、服务绑定的基础结构。
-- 已生成/接入前端可调用的 Wails binding 入口。
+### 5.3 React 状态层
 
-### 阶段 2：React + Vite 前端框架
+需要建立与源项目 Pinia store 对应的 React store/hooks：
 
-提交：`55238f5 feat: add react wails frontend scaffold`
+| 源 store | React 建议 | 责任 |
+|---|---|---|
+| `config` | `useConfigStore` | 配置读取、写入、主题、终端默认类型、快捷键、云配置 |
+| `sshConnections` | `useSSHConnectionsStore` | 连接列表、分组、状态刷新、连接操作 |
+| `sshLayout` | `useSSHLayoutStore` | 面板配置、Dockview 面板开关、默认布局 |
+| `sshTabs` | `useSSHTabsStore` | SSH 标签/窗口/分组关系 |
+| `terminalSessions` | `useTerminalSessionStore` | 多终端 session、AI session、session ready/close |
+| `commandHistory` | `useCommandHistoryStore` | 命令历史、收藏、按连接隔离 |
+| `aiToolLog` | `useAIToolLogStore` | AI 工具调用、审批、执行日志 |
 
-- 已创建 React + TypeScript + Vite 前端工程。
-- 已引入 Radix 风格的基础 UI 组件封装。
-- 已建立 `frontend/src/lib/wails/` 适配层：
-  - `runtime.ts` 包装 Wails `Events`、`Window`、`Dialogs`。
-  - `services.ts` 包装 Go service bindings。
-  - `types.ts` 定义当前 React 侧基础类型。
-- 已建立基础路由和桌面窗口入口。
+建议先实现 store，再迁移复杂面板。否则终端、AI、Dockview、日志之间会缺少统一桥接。
 
-### 阶段 3：React SSH 工作区外壳
+### 5.4 全局消息与确认
 
-提交：`1096b3c feat: migrate react ssh workspace`
+源项目有 `Message.vue`、`Modal.vue`、`confirm.js`、`logger.js` 等通用工具。React 侧需要等价实现：
 
-- 已建立首页工作区、连接表单、连接列表、基础设置、基础云同步面板。
-- 已建立 SSH 窗口 React 工作区入口。
-- 已能按 group/active connection 加载 SSH 连接列表。
-- 已接入基础终端 `xterm` 面板。
+- `ToastProvider` / `useToast`：成功、失败、警告提示。
+- `ConfirmDialogProvider` / `useConfirm`：危险操作确认。
+- `Modal` / `Dialog`：统一弹窗基础样式。
+- `logger`：统一操作日志、终端命令日志、文件操作日志、AI 工具日志。
 
-### 阶段 4：React SSH 工具面板外壳
+## 6. 模块迁移详单
 
-提交：`707f149 feat: add react ssh tool panels`
+### 6.1 首页连接流
 
-- 已新增 React 版工具面板：
-  - Terminal
-  - File
-  - Monitor
-  - AI
-  - Port Forward
-  - Firewall
-  - Process Guard
-  - Logs
-  - Command
-- 已完成少量 API 调用验证式实现，但这些面板目前仍是简化版本，不等价于源 Vue 功能。
+#### 源项目能力
 
-### 已做过的基础验证
+源项目新建连接流程包括：
 
-之前阶段已做过以下验证：
+- 表单校验：名称、host、port、username、password/privateKey、timeout。
+- 测试连接。
+- 判断是否已有 SSH 窗口。
+- 如果是第一个连接，直接加入默认分组。
+- 如果已有窗口，根据 `advanced.groupBehavior`：
+  - `prompt`：弹出 `ConnectionOptionsDialog`。
+  - `join_default`：自动加入默认分组。
+  - `new_window`：新建分组/窗口。
+- 连接成功后刷新连接 store。
+- 打开 SSH 窗口，并根据 `autoTray` 隐藏主页。
 
-- `npm run build`
-- `go test ./...`
-- `wails3 build -tags production`
+#### 当前 React 状态
 
-本次只更新迁移文档，未重新运行构建或测试。
+`ConnectionForm.tsx` 已有基本表单、测试连接、连接、默认分组/新窗口选择。但它目前把“打开方式”做成固定表单项，而不是完全复刻源项目“已有窗口时再根据配置/弹窗决定”的行为。
 
-## 当前结论
+#### 缺口
 
-当前 React 版本还没有达到 `D:\opensource\qssh\` 的功能对齐状态。现有页面主要完成了 React/Wails 外壳、基础样式和少量服务调用，很多源项目功能尚未迁移：
+- 缺少 `ConnectionOptionsDialog`。
+- 缺少 `prompt` 行为。
+- `join_default`、`new_window` 的优先级需要与源项目一致。
+- 缺少连接成功后的统一消息提示。
+- 缺少保存连接/临时连接策略的完整区分。
+- 缺少连接编辑和复用已保存连接的完整流程。
 
-- 首页连接、连接列表、设置、云服务只迁移了核心入口。
-- SSH 工作区当前是普通 Tabs，不是源项目 Dockview 多面板布局。
-- 终端、文件管理、监控、AI、端口转发、防火墙、进程守护、日志等面板均缺少大量交互。
-- 部分 React 适配层类型仍是手写 `any`/简化类型，尚未严格对齐 Go binding model。
+#### 迁移步骤
 
-后续迁移应以源项目功能为基准逐项补齐，而不是继续在当前外壳上只加零散按钮。
+1. 新增 `components/home/ConnectionOptionsDialog.tsx`。
+2. 把 `ConnectionForm.tsx` 的 `pickGroup` 改为源项目语义：先检查已有连接窗口，再读取 `advanced.groupBehavior`。
+3. 将“打开方式”表单项改为高级设置控制，不应每次连接都强制用户手动选。
+4. 接入 `useSSHConnectionsStore`，连接成功后统一刷新。
+5. 接入 `useToast`，替代局部 status 文本作为主提示。
+6. 保留局部错误展示用于详细失败信息。
 
-## 源项目重点功能清单
+#### 验收标准
 
-以下来自对 `D:\opensource\qssh\frontend\src` 和当前 `internal/` Go 服务的阅读整理。
+- 第一个连接不弹窗，直接打开默认分组。
+- 已有连接时，`prompt` 会弹出选择对话框。
+- `join_default` 自动加入默认分组。
+- `new_window` 自动创建新窗口/新分组。
+- 连接成功后连接列表刷新。
+- 开启 `autoTray` 时主页隐藏行为正常。
 
-### 首页连接页
+### 6.2 连接列表与连接管理
 
-源文件：
+#### 源项目能力
 
-- `frontend/src/views/Home/NewConnection.vue`
-- `frontend/src/views/Home/ConnectionOptionsDialog.vue`
-- `frontend/src/views/Home/layout/SidebarPanel.vue`
-- `frontend/src/views/Home/Settings.vue`
-- `frontend/src/views/Home/CloudPanel.vue`
-- `frontend/src/views/Home/AppLayout.vue`
+- 展示所有保存连接和当前连接状态。
+- 支持连接、断开、删除。
+- 支持分组关系。
+- 支持保存/复用连接配置。
+- 支持连接列表刷新与状态同步。
 
-源功能：
+#### 当前 React 状态
 
-- 新建连接表单支持名称、主机、端口、用户名、密码、私钥、超时等。
-- 连接前校验输入，并从后端 FriendlyError 中提取可读错误。
-- 支持 `TestConnection`。
-- 支持连接时检查已有 SSH 窗口，并根据设置决定加入默认窗口、新建窗口或弹出选择。
-- 支持 `ConnectionOptionsDialog` 选择连接打开方式。
-- 支持 `CreateGroup`、`GetDefaultGroupID`、`CreateAndConnectWithGroup`、`OpenSSHWindow`。
-- 支持连接后自动隐藏主窗口到托盘。
-- Sidebar 支持 saved/cache 分组、搜索、排序、右键菜单、快速连接、编辑、保存、取消保存、删除、断开连接。
-- Sidebar 监听 `ssh:connections-updated`、`ssh:window-closed` 等事件刷新状态。
-- Settings 支持终端类型、自动切换经典终端、命令发送模式、字体大小、代码高亮、快捷键、分组行为、托盘行为、窗口位置记忆、SSH 关闭后显示主页、清除窗口位置、云同步、导入/导出配置。
-- Home CloudPanel 是私有云服务管理面板，包含服务状态、端口、Token、设备列表、复制 Token、启动/停止服务等。
-- AppLayout/Titlebar 处理窗口最小化、最大化/还原、关闭，并维护最大化状态。
-
-当前 React 状态：
-
-- `ConnectionForm.tsx` 只覆盖基础输入、测试连接、连接、默认/新窗口选择。
-- `ConnectionsPanel.tsx` 只覆盖搜索、连接、断开、删除。
-- `SettingsPanel.tsx` 只覆盖主题、托盘、窗口位置、自动显示主页、清理窗口位置。
-- `CloudPanel.tsx` 只覆盖客户端连接、断开、拉取、推送，未覆盖源项目私有云服务管理。
-- 首页缺少源项目的完整 Sidebar 行为、编辑弹窗、保存/取消保存、缓存连接管理、连接打开策略弹窗。
-
-### SSH 窗口与布局
-
-源文件：
-
-- `frontend/src/views/SSH/Terminal.vue`
-- `frontend/src/views/SSH/layout/DockviewLayout.vue`
-- `frontend/src/views/SSH/layout/TopBookmarkBar.vue`
-- `frontend/src/views/SSH/layout/BottomStatusBar.vue`
-- `frontend/src/views/SSH/layout/LeftToolBar.vue`
-- `frontend/src/views/SSH/layout/RightAIToolbar.vue`
-- `frontend/src/views/SSH/TabContent.vue`
-
-源功能：
-
-- SSH 窗口通过 `/#/ssh?group=...&activeConn=...` 加载连接组。
-- 监听 `ssh:group-updated` 刷新连接组。
-- 窗口卸载时发出 `ssh:window-closed`。
-- 顶部书签栏支持连接 tab、切换 active connection、关闭连接、重连、保存连接、云同步上传/下载、窗口控制。
-- 底部状态栏显示连接状态、延迟、保存/断开等操作。
-- 左右工具栏负责打开终端、文件、监控、AI、日志、端口转发、防火墙、进程守护、批量命令等 Dockview panel。
-- Dockview 支持拖拽、分屏、关闭、新建到旁边、关闭同类、关闭其他等上下文菜单。
-- Dockview 与终端 session store、AI terminal、batch command panel 互通。
-
-当前 React 状态：
-
-- `SSHWorkspace.tsx` 只是侧边连接列表 + Radix Tabs。
-- 没有 Dockview 布局，没有多面板/分屏/上下文菜单。
-- 没有 TopBookmarkBar、BottomStatusBar、LeftToolBar、RightAIToolbar 的完整行为。
-- 没有完整的窗口卸载事件和 group close 清理链路。
-
-### 终端
-
-源文件：
-
-- `frontend/src/views/SSH/panels/StructuredTerminalPanel.vue`
-- `frontend/src/views/SSH/components/Terminal.vue`
-- `frontend/src/views/SSH/components/TerminalToolbar.vue`
-- `frontend/src/views/SSH/components/TerminalStatusBar.vue`
-- `frontend/src/views/SSH/components/TerminalSearchBar.vue`
-- `frontend/src/views/SSH/components/TerminalContextMenu.vue`
-- `frontend/src/views/SSH/components/CommandHistoryDialog.vue`
-- `frontend/src/views/SSH/components/CompletionPopup.vue`
-- `frontend/src/views/SSH/components/InteractivePrompt.vue`
-- `frontend/src/views/SSH/components/SessionManagerDialog.vue`
-- `frontend/src/views/SSH/components/ShortcutsDialog.vue`
-- `frontend/src/views/SSH/composables/useTerminal.js`
-- `frontend/src/views/SSH/composables/useShellSession.js`
-- `frontend/src/views/SSH/composables/useBlockManager.js`
-- `frontend/src/views/SSH/composables/useCommandHistory.js`
-- `frontend/src/views/SSH/composables/useCommandCompletion.js`
-- `frontend/src/views/SSH/composables/useInteractiveMode.js`
-- `frontend/src/views/SSH/composables/useRecording.js`
-
-源功能：
-
-- 支持结构化 block terminal 和 classic xterm 两种模式。
-- 支持命令输入框、发送按钮、命令历史、快捷命令、自动补全、补全弹窗。
-- 支持危险命令分析和交互命令检测，必要时提示切换经典模式。
-- 支持搜索、复制、粘贴、全选、右键菜单。
-- 支持终端录制、导出、代码高亮、主题、字体设置。
-- 支持 SessionManager，多终端 session ID 管理。
-- 支持 AI 创建/关闭终端、AI 向指定终端执行命令。
-- 支持断线、重连、重连中事件反馈。
-- 支持终端 resize、输出事件过滤、关闭 session 清理。
-
-当前 React 状态：
-
-- `TerminalPanel.tsx` 只创建一个 xterm，并使用固定 session ID `react-${connID}`。
-- 没有结构化模式、命令块、历史、补全、搜索、录制、右键菜单、主题设置、会话管理。
-- 固定 session ID 会限制同一连接下多个终端实例，迁移 Dockview 后必须先修正。
-
-### 文件管理
-
-源文件：
-
-- `frontend/src/views/SSH/panels/FileManagerPanel.vue`
-- `frontend/src/views/SSH/components/file-manager/FileToolbar.vue`
-- `frontend/src/views/SSH/components/file-manager/FileTable.vue`
-- `frontend/src/views/SSH/components/file-manager/ActionMenu.vue`
-- `frontend/src/views/SSH/components/file-manager/FilePreview.vue`
-- `frontend/src/views/SSH/components/file-manager/CodeEditor.vue`
-- `frontend/src/views/SSH/components/file-manager/PermissionEditor.vue`
-- `frontend/src/views/SSH/composables/useFileNavigation.js`
-- `frontend/src/views/SSH/composables/useFileOperations.js`
-- `frontend/src/views/SSH/composables/useFilePermissions.js`
-- `frontend/src/views/SSH/composables/useFileUpload.js`
-
-源功能：
-
-- 目录加载、路径面包屑、返回上级、刷新。
-- 文件搜索，支持递归搜索、搜索取消、`search-result`/`search-complete` 事件。
-- 文件/目录上传、目录上传进度、取消上传。
-- 下载文件、批量下载、压缩打包下载、临时文件清理。
-- 新建目录、重命名、复制、剪切、删除、批量删除。
-- 权限查看和 chmod 编辑。
-- 图片、视频、音频、文本预览。
-- CodeMirror 编辑文本并保存。
-- ActionMenu 和批量选择。
-
-当前 React 状态：
-
-- `FilePanel.tsx` 只支持列目录、输入路径、双击进入目录。
-- 没有上传、下载、预览、编辑、搜索、权限、批量操作、压缩、目录上传进度。
-
-### 监控
-
-源文件：
-
-- `frontend/src/views/SSH/panels/MonitorPanel.vue`
-
-源功能：
-
-- 读取 `GetSystemStats` 和 `GetProcessList`。
-- 展示 CPU、内存、磁盘、网络、负载等系统卡片。
-- 进程表支持排序、刷新、查看进程详情。
-- 支持 kill process 和发送 SIGTERM/SIGHUP/SIGINT/SIGQUIT/SIGKILL/SIGSTOP/SIGCONT。
-- 有确认弹窗和信号下拉菜单。
-
-当前 React 状态：
-
-- `MonitorPanel.tsx` 只展示少量指标和前 20 个进程。
-- 没有排序、详情、kill、signal、确认弹窗、自动刷新策略。
-- 当前字段访问是宽松猜测式，需用 Go model/binding 校准字段名。
-
-### AI 面板
-
-源文件：
-
-- `frontend/src/views/SSH/panels/AIChatPanel.vue`
-- `frontend/src/utils/aiToolExecutor.js`
-- `frontend/src/stores/aiToolLog.js`
-
-源功能：
-
-- AI 配置弹窗，支持 endpoint、api key、模型、预设、temperature、max tokens、system prompt。
-- 支持获取模型、保存配置、判断是否已配置。
-- 支持聊天历史加载、清空。
-- 支持发送消息、取消处理中请求。
-- 支持流式输出事件 `ai:stream-chunk`。
-- 支持 `ai:message`、`ai:status`、`ai:tool-approval`、`ai:tool-result`。
-- 支持工具审批/拒绝：`ApproveTool`、`DenyTool`。
-- 支持选择目标终端，结合 Dockview terminal list 执行命令。
-
-当前 React 状态：
-
-- `AIChatPanel.tsx` 只加载历史并调用 `SendMessage`。
-- 没有配置 UI、流式输出、工具审批、工具结果、取消、目标终端、AI 工具日志。
-
-### 批量命令
-
-源文件：
-
-- `frontend/src/views/SSH/panels/BatchCommandPanel.vue`
-
-源功能：
+`ConnectionsPanel.tsx` 已有搜索、排序、连接、断开、删除。
+
+#### 缺口
+
+- 缺少编辑连接。
+- 缺少保存当前连接/分组行为。
+- 缺少云同步触发。
+- 缺少分组视图或至少分组信息展示。
+- 连接时直接使用 `connection.group_id || default`，需要确认与源项目分组策略一致。
+- 删除操作缺少确认。
+
+#### 迁移步骤
+
+1. 新增连接编辑弹窗。
+2. 删除连接前接入 `useConfirm`。
+3. 连接操作复用首页连接流的 group strategy。
+4. 保存/更新连接后刷新 store。
+5. 如保留云同步，连接增删改后触发自动同步。
+
+#### 验收标准
+
+- 已保存连接可以编辑。
+- 删除有确认。
+- 连接状态可实时刷新。
+- 分组关系不丢失。
+- 与首页新建连接的打开策略一致。
+
+### 6.3 设置页
+
+#### 源项目能力
+
+设置页包含：
+
+- 终端：默认终端类型、结构化终端交互式操作模式、字体大小、命令发送方式、经典终端代码高亮。
+- 快捷键：全局快捷键、切换 SSH 标签、保存分组、云上传、云下载。
+- 高级：多个连接时的分组行为。
+- 窗口：主题、连接后自动托盘、记忆窗口位置、关闭 SSH 后自动显示首页、清除窗口位置。
+- 私有云端：启用、服务器地址、token、连接状态、测试连接、自动上传、自动下载、手动上传/下载。
+- 导入/导出配置。
+
+#### 当前 React 状态
+
+`SettingsPanel.tsx` 只包含主题、autoTray、rememberPosition、autoShowHome、清除窗口位置。
+
+#### 缺口
+
+- 终端设置全部缺失。
+- 快捷键设置全部缺失。
+- 高级分组行为缺失。
+- 云端设置缺失或与 CloudPanel 分离不清。
+- 导入/导出缺失。
+- 主题同步需要确认所有窗口生效。
+
+#### 迁移步骤
+
+1. 把设置页拆为多个 section：终端、快捷键、高级、窗口、私有云端、导入导出。
+2. 补齐 `configApi.get/set` 对应封装。
+3. 每个设置项都写入原项目相同的 namespace/key。
+4. 终端组件读取 `terminal.defaultType`、`terminal.switchMode`、`terminal.fontSize`、`terminal.commandSendMode`、`terminal.codeHighlight`。
+5. 连接流读取 `advanced.groupBehavior`。
+6. 云端同步设置读取 `cloud.*`。
+7. 导入/导出调用后端配置 API 或复用源项目逻辑。
+
+#### 验收标准
+
+- 所有源设置项在 React 设置页中可见、可保存、刷新后仍然生效。
+- 终端字体、默认模式、命令发送方式能影响新建终端。
+- `advanced.groupBehavior` 能影响连接打开策略。
+- 导入导出可用。
+- 私有云端同步如保留，则测试连接和上传/下载可用；如不保留，必须在文档中标记为主动移除。
+
+### 6.4 SSH 工作区与 Dockview 布局
+
+#### 源项目能力
+
+源项目 SSH 工作区使用 Dockview：
+
+- 每个连接窗口内可打开多个面板。
+- 终端面板可以多实例。
+- 非终端面板通常单实例，重复点击激活已有面板。
+- tab 右键菜单支持新建终端、关闭、关闭其他、关闭同类型全部。
+- 面板变更时向外广播当前面板类型和终端列表。
+- AI 可请求创建/关闭 AI 终端。
+- 终端 session ready 后通知 AI。
+- Dockview 卸载时销毁 AI 工具执行器并清理事件监听。
+
+#### 当前 React 状态
+
+`SSHWorkspace.tsx` 使用 Radix Tabs，将终端、文件、监控、AI、转发、防火墙、守护、日志、命令作为固定 tab。它无法等价表达源项目的多面板、多终端、右键菜单、AI 终端生命周期。
+
+#### 缺口
+
+- 缺少 Dockview 或等价多面板布局。
+- 缺少面板注册表。
+- 缺少 `addPanel/togglePanel/closePanel/closeOtherPanels/closeAllByType`。
+- 缺少多终端 session 创建逻辑。
+- 缺少 AI 终端事件处理。
+- 缺少 `dockview:terminals-changed` 广播。
+- 缺少默认终端类型读取。
+
+#### 迁移步骤
+
+1. 引入 React Dockview。
+2. 新增 `components/ssh/layout/DockviewWorkspace.tsx`，替代当前固定 Tabs。
+3. 新增 `panelRegistry.tsx`，注册：terminal、fileManager、monitor、aiChat、logs、portForward、firewall、guardian、batchCmd。
+4. 新增 `useTerminalSessionStore`。
+5. 实现 `addPanel`：终端多实例，其他面板单实例。
+6. 实现 tab 右键菜单。
+7. 实现 `dockview:terminals-changed` 事件。
+8. 实现 AI 创建/关闭终端事件。
+9. `SSHWorkspace.tsx` 只负责连接列表和工作区容器，不再承载全部面板 tab。
+
+#### 验收标准
+
+- 能同时打开多个终端。
+- 能在同一窗口打开文件、监控、AI、日志等面板。
+- 非终端面板重复点击只激活，不重复创建。
+- 右键菜单关闭逻辑与源项目一致。
+- AI 能创建专用终端，并在 session ready 后收到通知。
+- 关闭终端面板会关闭对应 shell session。
+
+### 6.5 终端面板
+
+#### 源项目能力
+
+结构化终端包含：
+
+- 结构化视图与经典 xterm 视图切换。
+- 工具栏：连接状态、命令数量、录制、历史、清空、模式切换。
+- 命令块：命令、输出、状态、折叠、复制、删除、重新执行。
+- 命令输入：回车发送或按钮发送，支持多行命令。
+- 命令历史、收藏。
+- 命令补全。
+- 搜索栏。
+- 右键菜单：复制、粘贴、全选、清空、搜索。
+- 快捷键说明。
+- 交互式临时终端。
+- 录制功能。
+- 经典终端代码高亮。
+- session manager：普通终端和 AI 终端隔离。
+
+#### 当前 React 状态
+
+`TerminalPanel.tsx` 只有单个 xterm，固定 `sessionID = react-${connID}`，启动 shell、写入输入、监听输出、resize、关闭 session。没有结构化视图，也不支持多 session。
+
+#### 缺口
+
+- 固定 sessionID 会导致同一连接无法开多个终端。
+- 缺少 Dockview params 传入的 `sessionId/isAI`。
+- 缺少结构化模式。
+- 缺少命令历史/收藏。
+- 缺少命令补全。
+- 缺少搜索。
+- 缺少录制。
+- 缺少右键菜单。
+- 缺少清屏、复制、粘贴、全选等操作。
+- 缺少配置驱动字体和模式。
+- 缺少 `terminal:session-ready` 事件。
+- 缺少日志记录。
+
+#### 迁移步骤
+
+1. 先新增 `terminal/sessionManager.ts` 与 `useTerminalSessionStore`。
+2. 修改 `TerminalPanel` props：`connID`、`sessionID`、`isAI`，不得内部固定 sessionID。
+3. 新增 `ClassicTerminalView.tsx`，负责纯 xterm。
+4. 新增 `StructuredTerminalPanel.tsx`，负责结构化终端总容器。
+5. 新增 hooks：
+   - `useBlockManager`
+   - `useCommandHistory`
+   - `useCommandCompletion`
+   - `useRecording`
+   - `useTerminalSearch`
+6. 新增组件：
+   - `TerminalBlock`
+   - `CompletionPopup`
+   - `ConfirmSwitch`
+   - `InteractivePrompt`
+   - `CommandHistoryDialog`
+   - `ShortcutsDialog`
+   - `TerminalContextMenu`
+7. 接入设置：默认终端类型、字体大小、命令发送方式、代码高亮、交互式操作模式。
+8. 接入 logger：记录连接事件和命令执行。
+9. session 启动完成后 emit `terminal:session-ready`。
+
+#### 验收标准
+
+- 同一连接可以开多个终端，互不串输出。
+- AI 终端和普通终端 session 隔离。
+- 结构化模式和经典模式可切换。
+- 命令块能复制、折叠、删除、重新执行。
+- 命令历史和收藏可用。
+- 搜索可用。
+- 右键菜单可用。
+- 录制可用或明确标记暂缓。
+- 关闭面板后对应 shell session 被关闭。
+
+### 6.6 文件管理器
+
+#### 源项目能力
+
+源项目文件管理器包含：
+
+- 路径导航、上级目录、刷新。
+- 文件表格、排序、选择、多选、全选。
+- 文件/目录打开。
+- 右键或三点菜单：预览、下载、压缩、重命名、复制/重复、剪切、chmod、删除。
+- 新建文件夹。
+- 上传文件、上传目录。
+- 上传任务面板：进度、成功、失败、取消、重试、清除已完成。
+- 搜索、递归搜索、取消搜索。
+- 批量下载、批量删除、批量 chmod。
+- 文件预览和编辑。
+- 权限编辑器。
+- 确认弹窗和输入弹窗。
+- 操作日志。
+
+#### 当前 React 状态
+
+`FilePanel.tsx` 只支持列目录、输入路径、刷新、双击进入目录。
+
+#### 缺口
+
+当前 React 文件面板缺失绝大多数 SFTP 文件管理功能。
+
+#### 迁移步骤
+
+1. 将 `FilePanel.tsx` 拆分为：
+   - `FileManagerPanel.tsx`
+   - `FileToolbar.tsx`
+   - `FileTable.tsx`
+   - `ActionMenu.tsx`
+   - `FilePreview.tsx`
+   - `PermissionEditor.tsx`
+   - `UploadTaskPanel.tsx`
+2. 迁移 hooks：
+   - `useNavigation`
+   - `useFileOperations`
+   - `usePermissions`
+   - `useUploadTasks`
+3. 补全后端 API 封装：list、read、write、upload、download、delete、rename、mkdir、chmod、compress、search。
+4. 对危险操作使用 `useConfirm`。
+5. 文件编辑器优先用 CodeMirror 6。
+6. 批量下载根据后端能力决定：后端打包优先；否则前端 `jszip` 打包。
+7. 上传目录需要保留相对路径。
+8. 所有操作写日志。
+
+#### 验收标准
+
+- 可以浏览目录、排序、选择、多选。
+- 可以上传文件/目录，并显示进度、取消、失败重试。
+- 可以下载单文件和批量文件。
+- 可以预览和编辑文本文件。
+- 可以新建文件夹、重命名、删除、chmod。
+- 搜索和递归搜索可用。
+- 大文件、空目录、权限不足、网络中断都有错误提示。
+
+### 6.7 AI 助手
+
+#### 源项目能力
+
+源项目 AI 面板包含：
+
+- AI 配置：API endpoint、API key、模型、温度、max tokens、系统提示词。
+- 模型拉取。
+- 预设模型供应商。
+- 配置状态提示。
+- Markdown 渲染和代码高亮。
+- 代码块命令执行按钮。
+- 快捷问题。
+- 快捷功能：运维、安全、性能、报告。
+- 目标终端选择：AI 自动或指定终端。
+- AI 执行步骤展示。
+- 工具结果卡片。
+- 深度思考内容展示。
+- 危险命令审批：拒绝/执行。
+- 取消处理。
+- 与 Dockview 终端列表联动。
+- AI 创建/关闭终端。
+- AI 工具执行器。
+- AI 工具日志 store。
+
+#### 当前 React 状态
+
+`AIChatPanel.tsx` 只加载历史、发送消息、显示简单列表。
+
+#### 缺口
+
+当前 React AI 面板还没有恢复源项目核心 AI 运维助手能力。
+
+#### 迁移步骤
+
+1. 引入 `marked` 和 `highlight.js`。
+2. 新增 `AISettingsDialog.tsx`。
+3. 新增模型拉取和预设供应商。
+4. 新增 timeline 数据结构：user、assistant、tool、steps、reasoning、approval。
+5. 接入 Wails AI 事件流。
+6. 接入 `dockview:terminals-changed`，维护终端列表。
+7. 迁移 `aiToolExecutor` 为 React/TS 工具模块。
+8. 迁移命令审批和危险命令确认。
+9. 支持指定终端执行或自动创建 AI 终端。
+10. 接入 `useAIToolLogStore`。
+
+#### 验收标准
+
+- 未配置 AI 时提示清楚。
+- 能保存和加载 AI 配置。
+- 能获取模型列表。
+- AI 回复支持 Markdown 和代码高亮。
+- shell 代码块可触发执行，但危险命令必须审批。
+- 执行过程、工具结果、reasoning、审批状态都能展示。
+- 能选择目标终端。
+- AI 自动创建终端时能收到 ready 事件并执行命令。
+- 可以取消当前处理。
+
+### 6.8 批量命令
+
+#### 源项目能力
 
 - 选择多个连接。
-- 选择每个连接的目标终端 session。
-- 批量发送命令到多个终端。
-- 通过 `dockview:terminals-changed` 获取终端列表。
-- 发出 `ai:terminal-exec-start` 等执行事件。
+- 输入命令。
+- 批量执行。
+- 展示每个连接的执行状态、输出、错误。
+- 支持常用命令模板。
+- 危险命令确认。
+- 日志记录。
 
-当前 React 状态：
+#### 当前 React 状态
 
-- 没有 BatchCommandPanel 对等实现。
-- 当前 `CommandPanel.tsx` 只是单连接 `ExecuteCommand`/命令输出面板，不能替代源批量命令。
+`CommandPanel.tsx` 不能视为 `BatchCommandPanel.vue` 的等价迁移。它更像当前连接的简单命令工具。
 
-### 端口转发
+#### 迁移步骤
 
-源文件：
+1. 新增 `BatchCommandPanel.tsx`，不要用当前 `CommandPanel` 冒充完成。
+2. 接入连接 store，支持多连接选择。
+3. 后端 API 若已有批量执行，直接封装；否则前端并发调用单连接命令 API。
+4. 输出按连接分组展示。
+5. 危险命令执行前必须确认。
+6. 写入操作日志。
 
-- `frontend/src/views/SSH/panels/PortForwardPanel.vue`
+#### 验收标准
 
-源功能：
+- 可以选择多个连接批量执行命令。
+- 每个连接状态独立展示。
+- 成功/失败/超时都能识别。
+- 支持取消或至少不阻塞 UI。
 
-- 支持 local 和 remote 两类转发。
-- 支持新增、编辑、删除、启动、停止。
-- 支持命名转发规则并保存本地名称。
-- 监听 `port-forward:status` 更新状态。
-- 展示 bind address/port、remote host/port、状态、流量等。
+### 6.9 端口转发
 
-当前 React 状态：
+#### 源项目能力
 
-- `PortForwardPanel.tsx` 只支持新增 local forward 和列表展示。
-- 没有 remote forward、启动、停止、删除、编辑、状态事件、命名规则。
+- 展示转发规则表格。
+- 支持名称。
+- 支持 local 与 remote 两种类型。
+- 展示监听地址、目标地址、连接数、流量、状态。
+- 支持添加、编辑、启动、停止、删除。
+- 表单有解释和校验。
+- 名称可本地持久化。
+- 监听事件刷新状态。
 
-### 防火墙
+#### 当前 React 状态
 
-源文件：
+`PortForwardPanel.tsx` 只支持简单表单和 `AddLocalForward`，没有 local/remote 类型切换，没有启动/停止/编辑/删除，没有统计展示。
 
-- `frontend/src/views/SSH/panels/FirewallPanel.vue`
+#### 迁移步骤
 
-源功能：
+1. 扩展 `ForwardItem` 类型。
+2. 新增 add/edit dialog。
+3. 支持 `type: local | remote`。
+4. 补 API：AddLocalForward、AddRemoteForward、StartForward、StopForward、UpdateForward、RemoveForward。
+5. 展示连接数、总连接数、上传/下载流量。
+6. 用 localStorage 或后端字段保存名称。
+7. 订阅端口转发状态事件。
 
-- 读取 `GetFirewallInfo`，识别 firewall 类型和状态。
-- 支持启用/停用防火墙。
-- 支持添加规则、删除规则。
-- 支持 iptables/firewalld/ufw 不同字段组合。
-- 支持运行自定义防火墙命令。
+#### 验收标准
 
-当前 React 状态：
+- local/remote 都能创建。
+- 可以启动、停止、编辑、删除。
+- 状态和流量能刷新。
+- 端口输入有校验。
+- 删除前有确认。
 
-- `FirewallPanel.tsx` 只显示 info JSON 和执行自定义命令。
-- 没有规则表、添加规则弹窗、删除规则、启停防火墙、不同防火墙类型表单。
+### 6.10 防火墙面板
 
-### 进程守护
+#### 源项目能力
 
-源文件：
+应以源 `FirewallPanel.vue` 为准恢复：
 
-- `frontend/src/views/SSH/panels/ProcessGuardPanel.vue`
+- 读取防火墙状态。
+- 展示规则列表。
+- 添加/删除规则。
+- 启用/禁用防火墙或规则。
+- 识别常见系统防火墙工具，如 ufw、firewalld、iptables，具体以后端能力为准。
+- 操作前确认。
+- 操作后刷新。
+- 写日志。
 
-源功能：
+#### 当前 React 状态
 
-- 读取 `GetGuardians`。
-- 支持创建守护进程，字段包括 name、command、workDir、autoRestart。
-- 支持启动、停止、重启、删除。
-- 支持查看/刷新日志 `GetGuardianLogs`。
-- 支持自动刷新。
+当前 React 防火墙面板只是基础外壳或简单命令式操作，不足以视为迁移完成。
 
-当前 React 状态：
+#### 迁移步骤
 
-- `ProcessGuardPanel.tsx` 只支持列表和 start/stop/restart。
-- 没有创建、删除、日志弹窗、自动刷新、workDir/autoRestart。
+1. 对照源 `FirewallPanel.vue` 完整梳理后端 API。
+2. 建立规则模型类型。
+3. 实现状态读取、规则表格、添加规则弹窗、删除确认。
+4. 所有危险操作写确认和日志。
 
-### 日志
+#### 验收标准
 
-源文件：
+- 能查看状态。
+- 能查看规则。
+- 能添加和删除规则。
+- 操作失败有明确错误提示。
 
-- `frontend/src/views/SSH/panels/LogsPanel.vue`
-- `frontend/src/utils/logger.js`
+### 6.11 进程守护面板
 
-源功能：
+#### 源项目能力
 
-- 从 logger store 读取结构化日志。
-- 支持按类型、等级、关键词过滤。
-- 支持详情展开、自动刷新、手动刷新。
-- 支持导出日志。
+- 查看守护规则或进程/服务列表。
+- 添加守护项。
+- 启动、停止、重启。
+- 删除守护项。
+- 状态刷新。
+- 日志记录。
 
-当前 React 状态：
+#### 当前 React 状态
 
-- `LogsPanel.tsx` 只是运行 `journalctl` 命令并显示输出。
-- 没有源项目 logger store、过滤、展开、导出、自动刷新。
+当前 React 仅有基础列表和操作外壳，未确认与源项目完全等价。
 
-### Stores 与工具
+#### 迁移步骤
 
-源文件：
+1. 对照源 `ProcessGuardPanel.vue` 补齐字段和操作。
+2. 建立守护项类型。
+3. 实现添加/编辑弹窗。
+4. 对停止、删除等操作加确认。
+5. 状态定时刷新或事件刷新。
 
-- `frontend/src/stores/config.js`
-- `frontend/src/stores/layout.js`
-- `frontend/src/stores/sshConnections.js`
-- `frontend/src/stores/sshLayout.js`
-- `frontend/src/stores/sshTabs.js`
-- `frontend/src/stores/terminalSessions.js`
-- `frontend/src/stores/commandHistory.js`
-- `frontend/src/stores/aiToolLog.js`
-- `frontend/src/utils/cloudClient.js`
-- `frontend/src/utils/commandAnalyzer.js`
-- `frontend/src/utils/commandDescriptions.js`
-- `frontend/src/utils/commandRunner.js`
-- `frontend/src/utils/commandSecurityAnalyzer.js`
-- `frontend/src/utils/confirm.js`
-- `frontend/src/utils/logger.js`
-- `frontend/src/utils/message.js`
-- `frontend/src/utils/sshEvents.js`
+#### 验收标准
 
-待迁移重点：
+- 守护项能增删改查。
+- 启停重启可用。
+- 状态刷新准确。
 
-- Pinia store 需要按 React 习惯迁移为局部 state、Context、Zustand 或轻量 reducer。不要为了迁移而过度抽象。
-- `terminalSessions`、`sshLayout`、`aiToolLog`、`commandHistory` 属于功能关键状态，不能只用组件局部 state 替代。
-- `confirm`、`message`、`logger`、`sshEvents` 需要 React 版统一实现，否则各面板会继续散落临时状态。
+### 6.12 监控面板
 
-## 已发现或高风险交互问题
+#### 源项目能力
 
-这些问题来自阅读当前 React 实现和对比源 Vue 行为，下一阶段需要实机验证。
+- 展示系统资源信息。
+- CPU、内存、磁盘、网络等基础指标。
+- 可能包含进程/服务状态。
+- 自动刷新或手动刷新。
 
-1. SSH 工作区不是 Dockview，多面板、分屏、上下文菜单、AI/批量命令与终端联动都无法实现源体验。
-2. `TerminalPanel.tsx` 使用固定 session ID `react-${connID}`，同一连接打开多个终端时会冲突。
-3. SSH 窗口关闭/组件卸载没有完整对齐源项目 `ssh:window-closed` 和 group cleanup 行为。
-4. `eventPayload<T>` 通过是否存在 `data` 字段判断事件包装，若真实 payload 本身包含 `data` 字段，可能误解包。
-5. `eventsApi.off(name, handler?)` 与 Wails runtime `Off` 的实际签名需要确认，避免监听清理失效。
-6. React `services.ts` 对 Go bindings 使用大量 `Record<string, (...args:any[]) => Promise<any>>`，类型保护不足，字段错配不易暴露。
-7. `CloudPanel.tsx` 将 `ConnectionInfo[]` 直接传给 `PushSync`，但 Go 侧 `PushSync` 参数是 `[]client.SyncConnection`，需要确认 binding 转换是否正确。
-8. `ConnectionForm.tsx` 的 group behavior 只处理 `new_window` 和默认窗口，未实现源项目的 `prompt` 弹窗流程。
-9. 保存连接、缓存连接、取消保存、删除缓存/永久连接的语义尚未完整区分。
-10. 连接断线、重连中、重连成功/失败事件尚未在 React UI 中完整处理。
-11. 各工具面板缺少全局 message/confirm，删除、kill、断开、防火墙变更等危险操作没有统一确认。
-12. 多数面板只是单次请求，没有源项目的自动刷新、事件驱动更新和取消机制。
-13. 部分 React 面板字段名是猜测式兼容，例如 `cpuPercent`/`memoryPercent`，需要根据生成 binding 和 Go struct 校准。
+#### 当前 React 状态
 
-## 后续分阶段 TODO
+当前已有 `MonitorPanel.tsx`，但需要逐项对照源 `MonitorPanel.vue`，确认是否缺失图表、刷新周期、字段、错误提示和样式。
 
-### Phase A：稳定 Wails API 适配层和事件模型
+#### 迁移步骤
 
-目标：先把 React 调 Go、监听事件、model 类型的基础打牢。
+1. 对照源模板和脚本逐项列出指标字段。
+2. 补全 React 数据类型。
+3. 补全刷新逻辑。
+4. 如源项目有图表，补图表组件或明确暂缓。
 
-待办：
+#### 验收标准
 
-- 用生成的 Wails binding 类型替换 `services.ts` 中大部分 `any`。
-- 明确每个 Go service 的 React wrapper 名称和参数，不再靠临时大小写兼容。
-- 修正 `eventPayload`，避免真实 payload 带 `data` 时误解包。
-- 确认 `Events.On/Off/Emit` 在 Wails v3 runtime 中的真实签名，统一 unsubscribe 行为。
-- 为常用事件定义类型：terminal output、connections updated、group updated、connection disconnected/reconnecting/reconnected、AI events、port-forward status、search events、upload progress。
-- 校准 `ConnectionInfo`、`SSHConfig`、`SSHGroup`、`SystemStats`、`ProcessInfo`、`FileInfo`、`FirewallInfo`、`GuardianProcess` 等类型。
+- 源项目展示的所有指标，React 均能展示。
+- 刷新逻辑可控。
+- 连接断开时有提示。
 
-验收：
+### 6.13 日志面板
 
-- TypeScript 不再需要靠宽松 `any` 调主要业务 API。
-- `npm run build` 能暴露 API/字段错配。
-- 事件订阅和卸载有一处统一实现。
+#### 源项目能力
 
-### Phase B：首页、连接管理、设置、云服务补齐
+源项目日志不是简单 `journalctl` 输出，而是应用内 logger 记录：
 
-目标：让 React 首页达到源 Vue 首页功能。
+- 连接事件。
+- 终端命令。
+- 文件操作。
+- AI 工具调用。
+- 端口转发/防火墙/守护操作。
+- 错误日志。
+- 日志级别和类型。
 
-待办：
+#### 当前 React 状态
 
-- 补齐 `ConnectionOptionsDialog`。
-- 实现 `groupBehavior = prompt | join_default | new_window` 完整流程。
-- 连接前检查已有 SSH 窗口，按设置决定打开方式。
-- 连接列表分 saved/cache，支持搜索、排序、右键菜单、编辑、保存、取消保存、删除、断开。
-- 补齐 `ssh:connections-updated`、`ssh:window-closed` 驱动刷新。
-- 补齐 Settings 全部配置项：终端模式、字体、命令发送、代码高亮、快捷键、分组行为、托盘、窗口位置、自动显示主页、导入导出、云同步。
-- 区分 Settings 中的云同步客户端配置和 Home CloudPanel 的私有云服务管理。
-- 补齐 Home CloudPanel：服务状态、端口、Token、设备列表、复制 Token、启动/停止服务。
+当前 `LogsPanel.tsx` 若只是展示远程日志或 journalctl，不等价。
 
-验收：
+#### 迁移步骤
 
-- 首页连接、保存、缓存、删除、编辑、设置行为与源项目一致。
-- 配置变更重启后仍可恢复。
-- 主窗口和 SSH 窗口生命周期与源项目一致。
+1. 迁移 `utils/logger.js` 为 `lib/logger.ts`。
+2. 建立全局 log store。
+3. 所有模块操作统一写日志。
+4. `LogsPanel.tsx` 展示应用操作日志。
+5. 如需远程系统日志，应作为单独子功能，不替代应用日志。
 
-### Phase C：SSH Dockview 工作区和窗口生命周期
+#### 验收标准
 
-目标：替换当前 Tabs 外壳，恢复源项目多面板工作区。
+- 连接、命令、文件、AI、端口、防火墙、守护操作都会产生日志。
+- 日志能按类型/级别过滤。
+- 日志能清空或导出，如源项目支持则迁移。
 
-待办：
+### 6.14 顶部书签与工具栏
 
-- 选择 React 版 Dockview 或等价库，迁移 `DockviewLayout.vue` 行为。
-- 实现 TopBookmarkBar、BottomStatusBar、LeftToolBar、RightAIToolbar。
-- 实现 panel registry：terminal、fileManager、monitor、aiChat、logs、portForward、firewall、processGuard、batchCommand。
-- 实现面板上下文菜单：关闭、新建到旁边、关闭同类、关闭其他。
-- 实现 connection tab 切换、关闭、保存、断开、重连。
-- 实现 `dockview:terminals-changed`。
-- 窗口卸载时发出 `ssh:window-closed` 并调用后端 group close/cleanup。
+#### 源项目能力
 
-验收：
+源 SSH 布局包含顶部书签栏、左侧/右侧/底部工具栏等布局辅助组件，用于快速打开面板、显示状态或执行快捷动作。
 
-- 可同时打开多个终端和工具面板。
-- AI 和批量命令能获取当前终端列表。
-- 关闭 SSH 窗口后连接组和窗口状态正确清理。
+#### 当前 React 状态
 
-### Phase D：终端完整迁移
+当前 `SSHWorkspace.tsx` 将功能压成一个固定 tabs，不等价。
 
-目标：恢复源项目终端核心体验。
+#### 迁移步骤
 
-待办：
+1. 对照 `layout` 目录完整列出所有布局组件。
+2. 新增 React 对应组件。
+3. 工具栏按钮调用 Dockview 的 `togglePanel/addPanel`，而不是切换固定 tab。
+4. 书签栏接入连接 store。
 
-- 抽出 React 版 terminal session store。
-- 支持多个 terminal session ID，避免固定 `react-${connID}`。
-- 迁移 classic xterm 和 structured terminal 两种模式。
-- 迁移命令块、命令历史、自动补全、快捷命令、搜索、右键菜单、复制/粘贴/全选。
-- 迁移命令安全分析、交互命令检测、切换经典模式确认。
-- 迁移录制、导出、代码高亮、主题、字体设置。
-- 处理断线、重连中、重连成功、重连失败事件。
+#### 验收标准
 
-验收：
+- 工具栏与源项目布局接近。
+- 点击工具栏能打开/关闭对应面板。
+- 书签或快速连接入口可用。
 
-- 单连接可开多个终端且互不串输出。
-- 结构化和经典模式都可正常执行命令。
-- 重连/断线状态可见且不丢 session 清理。
+## 7. 高风险偏差清单
 
-### Phase E：文件管理完整迁移
+后续迁移必须优先修复以下高风险点：
 
-目标：让 React 文件管理达到源 Vue 功能。
+1. **终端 sessionID 固定**：当前 `react-${connID}` 会阻止多终端能力，并可能造成输出串线。
+2. **Tabs 替代 Dockview**：固定 tabs 无法承载源项目核心多面板、多终端、右键菜单和 AI 终端联动。
+3. **连接分组行为变化**：当前“打开方式”表单与源项目 `advanced.groupBehavior` 的 prompt 流程不一致。
+4. **设置项缺失导致功能无法配置**：终端默认类型、字体、发送模式、代码高亮等缺失，会影响终端迁移。
+5. **React 依赖不足**：未引入 Markdown/highlight、CodeMirror、Dockview、xterm search/serialize 等库，相关功能无法完整实现。
+6. **事件命名大小写混乱**：`connID/connId`、`sessionID/sessionId` 混用会导致事件无法匹配。
+7. **没有统一 store**：复杂功能如果继续写在组件内部，会导致 AI、终端、Dockview、日志互相无法协作。
+8. **危险操作缺少确认**：文件删除、批量命令、防火墙、进程、端口删除等必须恢复确认机制。
+9. **AI 工具执行缺少审批**：不能直接执行 AI 生成的命令，必须保留审批和安全分析。
+10. **日志语义被替换**：远程系统日志不能替代源项目应用操作日志。
 
-待办：
+## 8. 推荐迁移顺序
 
-- 迁移文件表格、工具栏、ActionMenu、PermissionEditor、FilePreview、CodeEditor。
-- 迁移目录导航、面包屑、返回上级、刷新。
-- 迁移搜索、递归搜索、取消搜索和搜索事件。
-- 迁移上传文件、上传目录、进度、取消上传。
-- 迁移下载、批量下载、压缩打包下载、临时文件清理。
-- 迁移新建目录、重命名、删除、复制、剪切、权限修改。
-- 迁移图片/视频/音频/文本预览和文本编辑保存。
+### Phase 0：盘点与基础设施锁定
 
-验收：
+目标：先保证后续迁移不返工。
 
-- 常规 SFTP 操作与源项目一致。
-- 大目录搜索和上传可取消，进度事件显示正确。
-- 文本编辑、预览、权限修改可用。
+- 列出所有 qssh 前端文件。
+- 列出所有 goshell React 文件。
+- 建立完整 source-to-target 映射。
+- 补齐依赖。
+- 统一 Wails API 封装和类型。
+- 建立 React store 基础。
+- 建立 toast、confirm、logger。
 
-### Phase F：AI、批量命令、日志工具链
+验收：不实现大功能，但后续模块能共用统一 API、类型、store、消息和日志。
 
-目标：恢复 AI 与终端/工具执行联动。
+### Phase 1：首页、连接流、设置、云端
 
-待办：
+目标：恢复所有功能的配置入口。
 
-- 迁移 AI 配置、模型获取、保存配置、配置校验。
-- 迁移聊天历史、流式输出、状态事件、取消处理。
-- 迁移工具审批/拒绝、工具结果、AI 工具日志。
-- 迁移目标终端选择和 AI terminal executor。
-- 迁移 BatchCommandPanel：多连接、多终端、批量发送命令、结果状态。
-- 迁移 logger store 和 LogsPanel：类型/等级/关键词过滤、展开、自动刷新、导出。
+- 完成连接分组行为。
+- 完成连接列表编辑/删除/状态刷新。
+- 完成设置页所有 section。
+- 完成导入/导出。
+- 明确云同步是否保留；如保留，完整迁移。
 
-验收：
+验收：所有配置项可保存并影响后续功能。
 
-- AI 可以流式回复，可以申请工具执行，可以选择目标终端。
-- 批量命令可以向多个连接/终端发送。
-- 日志面板显示应用结构化日志，不只是 `journalctl` 输出。
+### Phase 2：SSH 工作区与 Dockview
 
-### Phase G：监控、端口转发、防火墙、进程守护补齐
+目标：先恢复承载复杂面板的布局系统。
 
-目标：补齐 SSH 工具面板。
+- 引入 Dockview React。
+- 实现面板 registry。
+- 实现 add/toggle/close 面板。
+- 实现右键菜单。
+- 实现终端列表事件和 AI 终端事件。
 
-待办：
+验收：可以打开多个终端和多个工具面板，关闭面板会清理资源。
 
-- Monitor：系统卡片、进程排序、详情、kill、signal、确认弹窗、自动刷新。
-- PortForward：local/remote、添加、编辑、删除、启动、停止、状态事件、命名规则。
-- Firewall：规则表、添加规则、删除规则、启停、iptables/firewalld/ufw 类型差异。
-- ProcessGuard：创建、删除、启动、停止、重启、日志查看、自动刷新。
+### Phase 3：终端完整迁移
 
-验收：
+目标：恢复结构化终端，这是核心优先级最高模块。
 
-- 每个工具面板功能与源 Vue 对齐。
-- 危险操作都有确认。
-- 后端事件可实时更新 UI 状态。
+- 多 session。
+- 结构化/经典双模式。
+- 命令块、历史、补全、搜索、录制、快捷键、右键菜单。
+- 配置驱动字体和模式。
+- AI session ready 事件。
 
-### Phase H：视觉与交互 QA
+验收：终端行为基本等价 qssh。
 
-目标：保证 React 版不是功能堆砌，而是可用的桌面应用。
+### Phase 4：文件管理器完整迁移
 
-待办：
+目标：恢复 SFTP 文件管理能力。
 
-- 对照 Vue 样式逐个页面校准密度、布局、颜色、hover、active、disabled、empty/loading/error 状态。
-- 检查窗口缩放、窄屏、长文本、表格溢出。
-- 检查 Titlebar 最大化/还原状态同步。
-- 检查键盘操作：Enter 发送、快捷键、Esc 关闭弹窗、Tab 聚焦。
-- 检查所有中文文案和错误提示。
+- 文件表格、排序、选择。
+- 上传/下载/批量/预览/编辑/权限/搜索/任务进度。
+- 操作确认和日志。
 
-验收：
+验收：可作为日常 SFTP 文件管理器使用。
 
-- 主要页面在桌面尺寸下没有明显错位、遮挡、空壳。
-- 常用交互路径不需要打开 DevTools 才能判断状态。
+### Phase 5：AI 助手与批量命令
 
-## 建议的手工验证矩阵
+目标：恢复 AI 运维和多连接命令能力。
 
-基础验证：
+- AI 配置、模型、Markdown、审批、工具执行、终端联动。
+- 批量命令面板。
+- AI 工具日志。
 
-- `npm run build`
-- `go test ./...`
-- `wails3 build -tags production`
+验收：AI 可安全地辅助执行命令，批量命令可按连接展示结果。
 
-首页验证：
+### Phase 6：端口转发、防火墙、进程守护、监控、日志
 
-- 错误主机、错误密码、错误私钥路径的提示。
-- 测试连接成功/失败。
-- 新建连接加入默认窗口。
-- 新建连接打开新窗口。
-- `groupBehavior=prompt` 时选择窗口行为。
-- 保存连接、取消保存、删除缓存连接、删除永久连接。
-- 编辑保存连接后重连。
-- 关闭 SSH 窗口后首页连接状态刷新。
+目标：恢复运维工具面板。
 
-SSH 工作区验证：
+- 端口转发 local/remote、启停、编辑、删除、统计。
+- 防火墙规则管理。
+- 进程守护管理。
+- 监控指标补齐。
+- 应用日志补齐。
 
-- 一个连接打开多个终端。
-- 一个连接打开多个工具面板。
-- 多连接在同一 group 中切换。
-- 断开、重连、重连失败。
-- 窗口关闭后 group cleanup。
+验收：源项目对应工具面板的功能全部可用。
 
-终端验证：
+### Phase 7：样式、体验、回归测试
 
-- 普通命令、长输出、交互命令。
-- resize 后终端 cols/rows 正确。
-- 搜索、复制、粘贴、全选。
-- 命令历史、自动补全、快捷命令。
-- 结构化模式和经典模式切换。
+目标：清理迁移痕迹，保证产品体验统一。
 
-文件管理验证：
+- 主题变量统一。
+- 弹窗、表格、工具栏、Dockview、终端样式统一。
+- 键盘快捷键。
+- 空状态、错误状态、加载状态。
+- 打包测试。
 
-- 列目录、进入目录、返回上级。
-- 上传文件、上传目录、取消上传。
-- 下载文件、批量下载。
-- 搜索和取消搜索。
-- 预览图片/文本，编辑文本并保存。
-- chmod、删除、重命名、新建目录。
+验收：从用户体验看不再像临时 React 骨架，而是完整桌面 SSH 工具。
 
-工具面板验证：
+## 9. Codex 执行用 step 清单
 
-- Monitor kill/signal。
-- PortForward local/remote start/stop/remove。
-- Firewall add/delete/toggle/custom command。
-- ProcessGuard create/start/stop/restart/delete/logs。
-- AI config/send/stream/tool approval/terminal execution。
-- Batch command 多终端执行。
-- Logs filter/export/auto refresh。
+### step-001：建立前端迁移总账本
 
-## 下一步建议
+目标：把本文档放入仓库根目录 `MIGRATION_NOTES.md`，作为唯一迁移账本。
 
-下一次开发建议先做 Phase A。原因是当前 React 层已经能调用一部分 Go API，但适配层仍然偏临时，如果直接继续补 UI，很容易把字段名、事件结构、session ID、unsubscribe 等问题散落到每个组件里。
+落点：
 
-Phase A 完成后再补首页和 SSH Dockview，后续每个功能面板都能建立在稳定的 API、事件和布局基础上。
+- `MIGRATION_NOTES.md`
+
+验收：文档包含模块映射、缺口、阶段、验收标准。
+
+### step-002：补齐依赖和类型基础
+
+目标：补齐 Dockview、Markdown、高亮、CodeMirror、xterm search/serialize、jszip 等依赖，并统一 Wails API 类型。
+
+落点：
+
+- `frontend/package.json`
+- `frontend/src/lib/wails.ts`
+- `frontend/src/types/*`
+
+验收：`npm run build` 或对应包管理器 build 通过；无未声明类型导致的编译错误。
+
+### step-003：实现全局 toast、confirm、logger
+
+目标：恢复消息提示、危险操作确认和应用操作日志。
+
+落点：
+
+- `frontend/src/components/ui/toast*`
+- `frontend/src/components/ui/confirm*`
+- `frontend/src/lib/logger.ts`
+- `frontend/src/stores/logStore.ts`
+
+验收：任一模块可调用 toast/confirm/logger。
+
+### step-004：实现 React store 基础
+
+目标：建立 config、connections、layout、terminalSessions、commandHistory、aiToolLog 等 store。
+
+落点：
+
+- `frontend/src/stores/configStore.ts`
+- `frontend/src/stores/sshConnectionsStore.ts`
+- `frontend/src/stores/sshLayoutStore.ts`
+- `frontend/src/stores/terminalSessionsStore.ts`
+- `frontend/src/stores/commandHistoryStore.ts`
+- `frontend/src/stores/aiToolLogStore.ts`
+
+验收：设置页、连接页、SSH 工作区可共用 store，不再重复请求和散落状态。
+
+### step-005：恢复首页连接流
+
+目标：恢复 `prompt/join_default/new_window` 行为和连接选择弹窗。
+
+落点：
+
+- `frontend/src/components/home/ConnectionForm.tsx`
+- `frontend/src/components/home/ConnectionOptionsDialog.tsx`
+
+验收：三个分组策略均按源项目行为工作。
+
+### step-006：恢复完整设置页
+
+目标：迁移终端、快捷键、高级、窗口、云端、导入导出设置。
+
+落点：
+
+- `frontend/src/components/home/SettingsPanel.tsx`
+- `frontend/src/components/home/CloudSettingsSection.tsx`
+- `frontend/src/components/home/ImportExportSection.tsx`
+
+验收：所有源项目设置项可见、可保存、刷新后仍生效。
+
+### step-007：用 Dockview 重建 SSH 工作区
+
+目标：替换固定 Tabs，恢复多面板布局。
+
+落点：
+
+- `frontend/src/components/ssh/SSHWorkspace.tsx`
+- `frontend/src/components/ssh/layout/DockviewWorkspace.tsx`
+- `frontend/src/components/ssh/layout/panelRegistry.tsx`
+- `frontend/src/components/ssh/layout/PanelContextMenu.tsx`
+
+验收：可多终端、多面板、右键关闭、AI 终端事件可用。
+
+### step-008：恢复终端 session 管理
+
+目标：修复固定 sessionID，建立多终端 session 生命周期。
+
+落点：
+
+- `frontend/src/components/ssh/TerminalPanel.tsx`
+- `frontend/src/components/ssh/terminal/sessionManager.ts`
+- `frontend/src/stores/terminalSessionsStore.ts`
+
+验收：同一连接多个终端互不串线；关闭面板关闭对应 session。
+
+### step-009：迁移结构化终端
+
+目标：恢复结构化视图、经典视图、命令块、历史、补全、搜索、录制、右键菜单。
+
+落点：
+
+- `frontend/src/components/ssh/terminal/StructuredTerminalPanel.tsx`
+- `frontend/src/components/ssh/terminal/components/*`
+- `frontend/src/components/ssh/terminal/hooks/*`
+- `frontend/src/components/ssh/terminal/utils/*`
+
+验收：终端功能基本等价源项目。
+
+### step-010：迁移完整文件管理器
+
+目标：恢复 SFTP 文件管理器。
+
+落点：
+
+- `frontend/src/components/ssh/file-manager/FileManagerPanel.tsx`
+- `frontend/src/components/ssh/file-manager/components/*`
+- `frontend/src/components/ssh/file-manager/hooks/*`
+- `frontend/src/components/ssh/file-manager/utils/*`
+
+验收：上传、下载、预览、编辑、权限、搜索、批量操作均可用。
+
+### step-011：迁移 AI 助手
+
+目标：恢复 AI 配置、模型、Markdown、高亮、审批、工具执行、终端联动。
+
+落点：
+
+- `frontend/src/components/ssh/AIChatPanel.tsx`
+- `frontend/src/components/ssh/ai/*`
+- `frontend/src/lib/aiToolExecutor.ts`
+- `frontend/src/stores/aiToolLogStore.ts`
+
+验收：AI 可安全审批并执行命令，能创建/使用终端。
+
+### step-012：迁移批量命令
+
+目标：恢复源 `BatchCommandPanel`。
+
+落点：
+
+- `frontend/src/components/ssh/BatchCommandPanel.tsx`
+
+验收：可选择多个连接并批量执行命令，逐连接展示结果。
+
+### step-013：迁移端口转发
+
+目标：恢复 local/remote、启停、编辑、删除、统计。
+
+落点：
+
+- `frontend/src/components/ssh/PortForwardPanel.tsx`
+
+验收：local/remote 都可用，状态和流量刷新正常。
+
+### step-014：迁移防火墙、进程守护、监控
+
+目标：补齐运维工具面板。
+
+落点：
+
+- `frontend/src/components/ssh/FirewallPanel.tsx`
+- `frontend/src/components/ssh/ProcessGuardPanel.tsx`
+- `frontend/src/components/ssh/MonitorPanel.tsx`
+
+验收：所有源项目字段和操作可用。
+
+### step-015：迁移日志面板
+
+目标：恢复应用日志，而不是只展示远程系统日志。
+
+落点：
+
+- `frontend/src/components/ssh/LogsPanel.tsx`
+- `frontend/src/lib/logger.ts`
+- `frontend/src/stores/logStore.ts`
+
+验收：各模块操作均产生可过滤日志。
+
+### step-016：样式与交互回归
+
+目标：统一主题、布局、弹窗、表格、终端、Dockview、文件管理器样式。
+
+落点：
+
+- `frontend/src/styles/*`
+- 各模块 CSS/Tailwind class
+
+验收：深色/浅色主题都正常；窗口尺寸变化、Dockview resize、终端 fit 正常。
+
+### step-017：完整回归测试
+
+目标：确保迁移完整。
+
+验收命令：
+
+```bash
+cd frontend
+npm run build
+
+cd ..
+go test ./...
+wails3 build
+```
+
+手工验收场景：
+
+1. 新建连接、测试连接、连接成功、打开 SSH 窗口。
+2. 已有窗口时分别测试 prompt、join_default、new_window。
+3. 同一连接打开多个终端，执行不同命令不串线。
+4. 结构化终端与经典终端切换。
+5. 文件上传、下载、预览、编辑、删除、chmod。
+6. AI 配置模型并执行安全命令。
+7. AI 生成危险命令时出现审批。
+8. 批量命令对多个连接执行。
+9. 端口转发 local/remote 创建、启动、停止、删除。
+10. 防火墙规则增删。
+11. 进程守护启停。
+12. 日志面板能看到上述操作日志。
+13. 关闭 SSH 窗口后 session 和事件监听正确清理。
+14. 打包后的桌面应用可运行。
+
+## 10. 不迁移或暂缓项记录区
+
+后续如果决定不迁移某些功能，必须写在这里。
+
+| 功能 | 决策 | 原因 | 替代方案 |
+|---|---|---|---|
+| 私有云端同步 | 待定 | 用户曾表示不需要 AI 和云端同步功能，但当前需再次确认项目目标 | 如不迁移，应从设置、快捷键、服务调用中移除入口 |
+| AI 助手 | 待定 | 用户曾表示不需要 AI，但当前迁移完整性要求需先列入账本 | 如不迁移，应明确删除 AI 面板和相关工具 |
+
+注意：在未明确删除前，本文档仍将它们视为源项目功能缺口。
+
+## 11. 后续执行原则
+
+1. 每完成一个 step，必须更新本文档中的状态。
+2. 不要把“组件已创建”当成“功能已完成”。
+3. 不要先做大面积样式美化，应先恢复数据流、事件流和操作闭环。
+4. 每个危险操作必须有确认。
+5. 每个异步操作必须有 loading、success、error 状态。
+6. 每个 Wails event 订阅必须有清理。
+7. 每个复杂功能必须有手工验收记录。
+8. React 版可以重新设计组件结构，但不能无意改变源项目用户行为。
+
