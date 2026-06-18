@@ -929,6 +929,14 @@
 
 目标：恢复 `prompt/join_default/new_window` 行为和连接选择弹窗。
 
+状态：已完成
+
+重构方案：
+- 新增 `frontend/src/components/home/ConnectionOptionsDialog.tsx`，把已有连接窗口时的选择动作独立成可复用弹窗，不再混在表单内部硬编码。
+- 修改 `ConnectionForm.tsx` 的分组选择逻辑，按 `advanced.groupBehavior` 处理 `prompt`、`join_default`、`new_window`，并在无活动分组时直接落到默认分组。
+- 去掉表单里的“打开方式”手动选择项，避免它和高级设置冲突；当用户在弹窗里取消时，连接流程应平滑中断，不产生误连。
+- 保留测试连接、自动托盘、成功/失败提示和日志记录，确保连接主链路没有被这次分流改坏。
+
 落点：
 
 - `frontend/src/components/home/ConnectionForm.tsx`

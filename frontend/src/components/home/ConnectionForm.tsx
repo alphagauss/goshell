@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { KeyRound, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConnectionOptionsDialog, type ConnectionOpenChoice } from "@/components/home/ConnectionOptionsDialog";
 import { useToast } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusLine } from "@/components/StatusLine";
@@ -8,7 +9,7 @@ import { extractErrorMessage } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { configApi, eventsApi, sshApi, type AppConfig, type SSHConfig, type SSHGroup } from "@/lib/wails";
 
-const emptyForm: SSHConfig & { authType: "password" | "key"; target: "default" | "new" } = {
+const emptyForm: SSHConfig & { authType: "password" | "key" } = {
   name: "",
   host: "",
   port: 22,
@@ -17,7 +18,6 @@ const emptyForm: SSHConfig & { authType: "password" | "key"; target: "default" |
   privateKey: "",
   timeout: 30,
   authType: "password",
-  target: "default",
 };
 
 export function ConnectionForm({
@@ -33,8 +33,10 @@ export function ConnectionForm({
     text: "",
   });
   const [busy, setBusy] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const toast = useToast();
   const connectionLog = logger.scope("home.connection-form");
+  const pendingChoice = useRef<((choice: ConnectionOpenChoice | null) => void) | null>(null);
 
   const connectConfig = useMemo<SSHConfig>(
     () => ({
@@ -50,12 +52,25 @@ export function ConnectionForm({
   );
 
   async function pickGroup(groups: SSHGroup[]) {
-    if (form.target === "new") {
-      return sshApi.createGroup(connectConfig.name);
-    }
-
     const hasActiveGroup = groups.some((group) => (group?.conn_ids?.length ?? 0) > 0);
     if (!hasActiveGroup) {
+      return sshApi.getDefaultGroupID();
+    }
+
+    if (config?.advanced?.groupBehavior === "prompt") {
+      const choice = await new Promise<ConnectionOpenChoice | null>((resolve) => {
+        pendingChoice.current = resolve;
+        setOptionsOpen(true);
+      });
+
+      if (!choice) {
+        return null;
+      }
+
+      if (choice === "new") {
+        return sshApi.createGroup(connectConfig.name);
+      }
+
       return sshApi.getDefaultGroupID();
     }
 
@@ -64,6 +79,13 @@ export function ConnectionForm({
     }
 
     return sshApi.getDefaultGroupID();
+  }
+
+  function closeOptions(choice: ConnectionOpenChoice | null) {
+    const resolve = pendingChoice.current;
+    pendingChoice.current = null;
+    setOptionsOpen(false);
+    resolve?.(choice);
   }
 
   function validate() {
@@ -130,6 +152,14 @@ export function ConnectionForm({
     try {
       const groups = (await sshApi.getAllGroups()) as SSHGroup[];
       const groupID = await pickGroup(groups);
+      if (!groupID) {
+        connectionLog.info("连接已取消", {
+          name: connectConfig.name,
+          host: connectConfig.host,
+        });
+        return;
+      }
+
       const result = (await sshApi.createAndConnectWithGroup(connectConfig, groupID)) as {
         connID?: string;
         groupID?: string;
@@ -257,17 +287,6 @@ export function ConnectionForm({
             onChange={(event) => setForm((current) => ({ ...current, timeout: Number(event.target.value) }))}
           />
         </label>
-        <label>
-          打开方式
-          <select
-            className="input-base"
-            value={form.target}
-            onChange={(event) => setForm((current) => ({ ...current, target: event.target.value as "default" | "new" }))}
-          >
-            <option value="default">默认分组</option>
-            <option value="new">新窗口</option>
-          </select>
-        </label>
       </div>
 
       <StatusLine tone={status.tone}>{status.text}</StatusLine>
@@ -280,6 +299,12 @@ export function ConnectionForm({
           连接
         </Button>
       </div>
+
+      <ConnectionOptionsDialog
+        open={optionsOpen}
+        onCancel={() => closeOptions(null)}
+        onSelect={(choice) => closeOptions(choice)}
+      />
     </section>
   );
 }
