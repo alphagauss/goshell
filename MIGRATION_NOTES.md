@@ -1094,14 +1094,17 @@
 - AI 面板现在可以保存配置、拉取模型、渲染 markdown、批准或拒绝工具调用、执行远程命令，并打开或关闭 AI 终端。
 
 ### step-012：迁移批量命令
-
+状态：已完成
 目标：恢复源 `BatchCommandPanel`。
-
-落点：
-
-- `frontend/src/components/ssh/BatchCommandPanel.tsx`
-
-验收：可选择多个连接并批量执行命令，逐连接展示结果。
+重构方案：
+- 新增 `frontend/src/components/ssh/BatchCommandPanel.tsx`，从 `useSSHConnectionsStore` 读取连接列表，支持多选、全选、清空，并通过 `sshApi.executeCommand` 对选中连接并行执行命令。
+- 每个连接结果独立保存连接名、主机、账号和执行输出，按 `running / success / error` 显示状态，避免把批量执行结果混在单一输出框里。
+- 保留 `frontend/src/components/ssh/CommandPanel.tsx` 作为兼容导出，避免旧入口失效。
+- 将 `frontend/src/components/ssh/layout/panelRegistry.tsx` 的 `commands` 面板切换到 `BatchCommandPanel`。
+验证：
+- `cd frontend && npm run build`
+结果：
+- 命令面板现在支持多连接批量执行，并逐连接展示结果。
 
 ### step-013：迁移端口转发
 

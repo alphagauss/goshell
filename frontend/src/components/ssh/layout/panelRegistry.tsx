@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import type { IDockviewPanelProps } from "dockview";
 import { AIChatPanel } from "@/components/ssh/AIChatPanel";
-import { CommandPanel } from "@/components/ssh/CommandPanel";
+import { BatchCommandPanel } from "@/components/ssh/BatchCommandPanel";
 import { FilePanel } from "@/components/ssh/FilePanel";
 import { FirewallPanel } from "@/components/ssh/FirewallPanel";
 import { LogsPanel } from "@/components/ssh/LogsPanel";
@@ -96,7 +96,7 @@ export const dockviewPanelComponents: Record<
   firewall: createPanelComponent((connID) => <FirewallPanel connID={connID} />),
   guard: createPanelComponent((connID) => <ProcessGuardPanel connID={connID} />),
   logs: createPanelComponent((connID) => <LogsPanel connID={connID} />),
-  commands: createPanelComponent((connID) => <CommandPanel connID={connID} />),
+  commands: createPanelComponent((connID) => <BatchCommandPanel connID={connID} />),
 };
 
 export function getWorkspacePanelDefinition(panelType: WorkspacePanelType) {

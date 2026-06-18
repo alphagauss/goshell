@@ -1732,6 +1732,175 @@ input {
   grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
+.batch-command-panel {
+  display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.batch-command-panel__command {
+  min-height: 120px;
+}
+
+.batch-command-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-command-panel__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.batch-command-panel__selection,
+.batch-command-panel__results {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.batch-command-panel__selection-heading,
+.batch-command-panel__results-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.batch-command-panel__selection-heading h3,
+.batch-command-panel__selection-heading span,
+.batch-command-panel__results-heading h3,
+.batch-command-panel__results-heading span {
+  margin: 0;
+}
+
+.batch-command-panel__selection-heading h3,
+.batch-command-panel__results-heading h3 {
+  font-size: 13px;
+}
+
+.batch-command-panel__selection-heading span,
+.batch-command-panel__results-heading span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.batch-command-panel__connection-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.batch-command-panel__connection {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.batch-command-panel__connection input {
+  width: 16px;
+  height: 16px;
+}
+
+.batch-command-panel__connection.is-selected {
+  background: var(--primary-bg);
+  border-color: var(--border-accent);
+}
+
+.batch-command-panel__connection-info,
+.batch-command-panel__result-info {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.batch-command-panel__connection-info strong,
+.batch-command-panel__connection-info span,
+.batch-command-panel__result-info strong,
+.batch-command-panel__result-info span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-command-panel__connection-info span,
+.batch-command-panel__result-info span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.batch-command-panel__result {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.batch-command-panel__result.is-running {
+  border-color: var(--border-warning);
+}
+
+.batch-command-panel__result.is-success {
+  border-color: var(--border-success);
+}
+
+.batch-command-panel__result.is-error {
+  border-color: var(--border-danger);
+}
+
+.batch-command-panel__result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.batch-command-panel__output {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  color: var(--text-primary);
+  background: var(--bg-terminal);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.status-pill--success {
+  color: var(--accent-success);
+  background: var(--success-bg);
+  border-color: var(--border-success);
+}
+
+.status-pill--error {
+  color: var(--accent-danger);
+  background: var(--danger-bg);
+  border-color: var(--border-danger);
+}
+
 .command-output {
   min-height: 240px;
   margin: 12px 0 0;
