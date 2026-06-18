@@ -970,12 +970,23 @@
 
 目标：替换固定 Tabs，恢复多面板布局。
 
+状态：已完成
+
+重构方案：
+- 新增 `DockviewWorkspace.tsx`，用 `dockview-react` 替代固定 Tabs 作为 SSH 面板容器，并在顶部保留可点击的面板工具条。
+- 新增 `panelRegistry.tsx`，把终端、文件、监控、AI、转发、防火墙、守护、日志、命令这些面板统一注册到 Dockview 组件映射里。
+- 新增 `PanelContextMenu.tsx`，把右键菜单里的“新建终端”“关闭同类型全部”等行为收口成 Dockview 侧的统一逻辑。
+- 通过 `dockview:terminals-changed` 广播当前终端面板列表和活动面板，给后续 AI/终端联动预留统一事件桥。
+- 在 `SSHWorkspace.tsx` 中保留连接切换侧栏与状态壳，去掉固定 Tabs，改为把当前连接传给 Dockview 工作区中的各个面板。
+
 落点：
 
 - `frontend/src/components/ssh/SSHWorkspace.tsx`
 - `frontend/src/components/ssh/layout/DockviewWorkspace.tsx`
 - `frontend/src/components/ssh/layout/panelRegistry.tsx`
 - `frontend/src/components/ssh/layout/PanelContextMenu.tsx`
+- `frontend/src/types/events.ts`
+- `frontend/src/styles/app.css`
 
 验收：可多终端、多面板、右键关闭、AI 终端事件可用。
 

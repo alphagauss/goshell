@@ -19,6 +19,13 @@ export interface GroupUpdatedEvent {
   connections?: ConnectionInfo[] | string[];
 }
 
+export interface DockviewTerminalsChangedEvent {
+  connID: string;
+  terminalPanelIDs: string[];
+  activePanelID?: string;
+  timestamp: number;
+}
+
 export interface AIStatusEvent {
   connId: string;
   status: string;
