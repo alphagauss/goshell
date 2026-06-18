@@ -1122,15 +1122,17 @@
 
 ### step-014：迁移防火墙、进程守护、监控
 
+状态：已完成
 目标：补齐运维工具面板。
-
-落点：
-
-- `frontend/src/components/ssh/FirewallPanel.tsx`
-- `frontend/src/components/ssh/ProcessGuardPanel.tsx`
-- `frontend/src/components/ssh/MonitorPanel.tsx`
-
-验收：所有源项目字段和操作可用。
+重构方案：
+- 重写 `frontend/src/components/ssh/FirewallPanel.tsx`，补上防火墙开关、规则新增、规则删除和自定义命令执行，面板自动刷新并展示规则摘要。
+- 重写 `frontend/src/components/ssh/ProcessGuardPanel.tsx`，补上守护进程创建、详情查看、启动、停止、重启和删除，详情区同步拉取 stats 与 logs。
+- 重写 `frontend/src/components/ssh/MonitorPanel.tsx`，补上系统总览、磁盘、网络和进程列表，并按固定间隔自动刷新。
+- 补齐 `frontend/src/lib/wails/services.ts` 中的防火墙绑定声明，让前端可以直接调用 `AddRule` 和 `DeleteRule`。
+验证：
+- `cd frontend && npm run build`
+结果：
+- 防火墙、进程守护和监控面板都恢复为可操作状态，相关字段和操作已可在前端使用。
 
 ### step-015：迁移日志面板
 

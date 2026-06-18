@@ -110,6 +110,8 @@ interface AIServiceApi {
 }
 
 interface FirewallServiceApi {
+  AddRule(connID: string, chain: string, target: string, protocol: string, port: string, source: string, comment: string): Promise<void>;
+  DeleteRule(connID: string, chain: string, index: number, port: string, protocol: string): Promise<void>;
   GetFirewallInfo(connID: string): Promise<FirewallInfo | null>;
   RunCustomCommand(connID: string, command: string): Promise<string>;
   ToggleFirewall(connID: string, enable: boolean): Promise<void>;
