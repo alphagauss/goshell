@@ -20,7 +20,7 @@ import { LogsPanel } from "@/components/ssh/LogsPanel";
 import { MonitorPanel } from "@/components/ssh/MonitorPanel";
 import { PortForwardPanel } from "@/components/ssh/PortForwardPanel";
 import { ProcessGuardPanel } from "@/components/ssh/ProcessGuardPanel";
-import { TerminalPanel } from "@/components/ssh/TerminalPanel";
+import { StructuredTerminalPanel } from "@/components/ssh/terminal/StructuredTerminalPanel";
 import { createTerminalSessionID } from "@/components/ssh/terminal/sessionManager";
 
 export type WorkspacePanelType =
@@ -63,7 +63,7 @@ function createTerminalPanelComponent() {
     const sessionID = props.params.sessionID ?? fallbackSessionID.current;
 
     return (
-      <TerminalPanel
+      <StructuredTerminalPanel
         connID={props.params.connID}
         sessionID={sessionID}
         isAI={Boolean(props.params.isAI)}

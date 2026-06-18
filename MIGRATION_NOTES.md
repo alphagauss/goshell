@@ -1018,14 +1018,19 @@
 
 目标：恢复结构化视图、经典视图、命令块、历史、补全、搜索、录制、右键菜单。
 
-落点：
+状态：已完成
 
-- `frontend/src/components/ssh/terminal/StructuredTerminalPanel.tsx`
-- `frontend/src/components/ssh/terminal/components/*`
-- `frontend/src/components/ssh/terminal/hooks/*`
-- `frontend/src/components/ssh/terminal/utils/*`
+重构方案：
 
-验收：终端功能基本等价源项目。
+- 将终端拆成 `ClassicTerminalView` 和 `StructuredTerminalPanel` 两层，经典终端继续承载 xterm 会话，结构化视图负责块化输出与交互控件。
+- 提取 `useBlockManager`、`useCommandHistory`、`useCommandCompletion`、`useRecording`、`useTerminalSearch`，分别管理输出块、命令历史、补全、录制和搜索。
+- 新增 `TerminalToolbar`、`TerminalBlock`、`TerminalSearchBar`、`CompletionPopup`、`CommandHistoryDialog`、`TerminalContextMenu`、`TerminalStatusBar`，补齐结构化终端的主要交互。
+- 为结构化终端补齐样式，包含视图切换、块列表、搜索框、补全弹层、历史弹窗和状态栏。
+- 保留经典终端会话生命周期与 `terminal:session-ready` 事件，避免切换视图时中断连接。
+
+验证：
+
+- `cd frontend && npm run build`
 
 ### step-010：迁移完整文件管理器
 
