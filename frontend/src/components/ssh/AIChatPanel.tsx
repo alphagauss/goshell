@@ -4,12 +4,7 @@ import { Button } from "@/components/ui/button";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
 import { aiApi } from "@/lib/wails";
-
-interface ChatMessage {
-  id?: string;
-  role?: string;
-  content?: string;
-}
+import type { ChatMessage } from "@/types";
 
 export function AIChatPanel({ connID }: { connID: string }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -19,7 +14,7 @@ export function AIChatPanel({ connID }: { connID: string }) {
   async function load() {
     try {
       const history = await aiApi.GetChatHistory(connID);
-      setMessages(Array.isArray(history) ? history : []);
+      setMessages(Array.isArray(history) ? history.filter((item): item is ChatMessage => item !== null) : []);
     } catch {
       setMessages([]);
     }

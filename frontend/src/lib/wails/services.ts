@@ -6,48 +6,178 @@ import * as GreetServiceBinding from "@bindings/goshell/internal/ssh/greetservic
 import * as PortForwardServiceBinding from "@bindings/goshell/internal/ssh/portforwardservice.js";
 import * as ProcessGuardianServiceBinding from "@bindings/goshell/internal/ssh/processguardianservice.js";
 import * as SSHServiceBinding from "@bindings/goshell/internal/ssh/sshservice.js";
-import type { AppConfig, ConnectionInfo, SSHConfig } from "@/lib/wails/types";
+import type {
+  AIConfig,
+  AIModelInfo,
+  AppConfig,
+  ChatMessage,
+  ChatRequest,
+  ChatResponse,
+  CommandResult,
+  ConnectResult,
+  ConnectionInfo,
+  FileInfo,
+  FirewallInfo,
+  GuardianProcess,
+  PortForward,
+  ProcessInfo,
+  SSHConfig,
+  SSHGroup,
+  SyncConnection,
+  SystemStats,
+} from "@/types";
 
-type ServiceBinding = Record<string, (...args: any[]) => Promise<any>>;
+interface SSHServiceApi {
+  TestConnection(config: SSHConfig): Promise<void>;
+  CreateAndConnect(config: SSHConfig): Promise<string>;
+  CreateAndConnectWithGroup(config: SSHConfig, groupID: string): Promise<ConnectResult>;
+  Connect(connID: string, config: SSHConfig): Promise<void>;
+  OpenSSHWindow(groupID: string, groupName: string, activeConnID: string): Promise<void>;
+  Disconnect(connID: string): Promise<void>;
+  Reconnect(connID: string): Promise<void>;
+  GetAllConnections(): Promise<ConnectionInfo[]>;
+  GetConnection(id: string): Promise<ConnectionInfo | null>;
+  UpdateConnection(connection: ConnectionInfo): Promise<void>;
+  AddConnection(connection: ConnectionInfo): Promise<void>;
+  GetAllGroups(): Promise<SSHGroup[]>;
+  GetGroupConnectionInfos(groupID: string): Promise<ConnectionInfo[]>;
+  GetDefaultGroupID(): Promise<string>;
+  CreateGroup(name: string): Promise<string>;
+  SaveConnection(id: string): Promise<void>;
+  DeleteConnection(id: string): Promise<void>;
+  StartShellSession(connID: string): Promise<void>;
+  StartShellSessionWithID(connID: string, sessionID: string): Promise<void>;
+  WriteToTerminal(connID: string, data: string): Promise<void>;
+  WriteToTerminalByID(connID: string, sessionID: string, data: string): Promise<void>;
+  ResizeTerminal(connID: string, cols: number, rows: number): Promise<void>;
+  ResizeTerminalByID(connID: string, sessionID: string, cols: number, rows: number): Promise<void>;
+  CloseShellSession(connID: string): Promise<void>;
+  CloseShellSessionByID(connID: string, sessionID: string): Promise<void>;
+  ListFiles(connID: string, path: string): Promise<FileInfo[]>;
+  ExecuteCommand(connID: string, command: string): Promise<CommandResult | string | null>;
+  RunCommand(connID: string, command: string): Promise<string>;
+  GetSystemStats(connID: string): Promise<SystemStats>;
+  GetProcessList(connID: string): Promise<ProcessInfo[]>;
+  ClearWindowPositions(): Promise<void>;
+  GetLatency(connID: string): Promise<number>;
+  GetServerKey(connID: string): Promise<string>;
+  GetGroupByConnID(connID: string): Promise<SSHGroup | null>;
+  CloseGroup(groupID: string): Promise<void>;
+}
 
-const AIService = AIServiceBinding as ServiceBinding;
-const CloudService = CloudServiceBinding as ServiceBinding;
-const ConfigService = ConfigServiceBinding as ServiceBinding;
-const FirewallService = FirewallServiceBinding as ServiceBinding;
-const GreetService = GreetServiceBinding as ServiceBinding;
-const PortForwardService = PortForwardServiceBinding as ServiceBinding;
-const ProcessGuardianService = ProcessGuardianServiceBinding as ServiceBinding;
-const SSHService = SSHServiceBinding as ServiceBinding;
+interface ConfigServiceApi {
+  GetConfig(): Promise<AppConfig>;
+  SetConfig(config: AppConfig): Promise<void>;
+  Get(category: string, key: string): Promise<unknown>;
+  Set(category: string, key: string, value: unknown): Promise<void>;
+  ResetAll(): Promise<void>;
+}
+
+interface CloudServiceApi {
+  Connect(serverAddr: string, token: string): Promise<boolean>;
+  Disconnect(): Promise<void>;
+  IsConnected(): Promise<boolean>;
+  PullSync(): Promise<SyncConnection[]>;
+  PushSync(connections: SyncConnection[]): Promise<void>;
+}
+
+interface AIServiceApi {
+  GetConfig(): Promise<AIConfig>;
+  IsConfigured(): Promise<boolean>;
+  SaveConfig(config: AIConfig): Promise<void>;
+  FetchModels(): Promise<AIModelInfo[]>;
+  FetchModelsWithParams(endpoint: string, key: string): Promise<AIModelInfo[]>;
+  GetChatHistory(connID: string): Promise<Array<ChatMessage | null>>;
+  SendMessage(req: ChatRequest | null): Promise<ChatResponse | null>;
+  CancelProcessing(connID: string): Promise<void>;
+  ClearChatHistory(connID: string): Promise<void>;
+  ApproveTool(callID: string): Promise<void>;
+  DenyTool(callID: string): Promise<void>;
+  SubmitToolResult(callID: string, result: string): Promise<void>;
+  SetApp(app: unknown): Promise<void>;
+}
+
+interface FirewallServiceApi {
+  GetFirewallInfo(connID: string): Promise<FirewallInfo | null>;
+  RunCustomCommand(connID: string, command: string): Promise<string>;
+  ToggleFirewall(connID: string, enable: boolean): Promise<void>;
+}
+
+interface PortForwardServiceApi {
+  AddLocalForward(
+    connID: string,
+    bindAddr: string,
+    bindPort: number,
+    remoteHost: string,
+    remotePort: number,
+  ): Promise<PortForward | null>;
+  AddRemoteForward(
+    connID: string,
+    bindAddr: string,
+    bindPort: number,
+    remoteHost: string,
+    remotePort: number,
+  ): Promise<PortForward | null>;
+  GetForwardStatus(forwardID: string): Promise<PortForward | null>;
+  GetForwards(connID: string): Promise<PortForward[]>;
+  RemoveForward(forwardID: string): Promise<void>;
+  StartForward(forwardID: string): Promise<void>;
+  StopForward(forwardID: string): Promise<void>;
+  StopAllByConnID(connID: string): Promise<void>;
+}
+
+interface ProcessGuardianServiceApi {
+  GetGuardians(connID: string): Promise<GuardianProcess[]>;
+  StartGuardian(connID: string, name: string): Promise<void>;
+  StopGuardian(connID: string, name: string): Promise<void>;
+  RestartGuardian(connID: string, name: string): Promise<void>;
+  CreateGuardian(connID: string, name: string, command: string, workDir: string, autoRestart: boolean): Promise<void>;
+  DeleteGuardian(connID: string, name: string): Promise<void>;
+  GetGuardianLogs(connID: string, name: string, lines: number): Promise<string>;
+  ClearGuardianLogs(connID: string, name: string, logPath: string): Promise<void>;
+  GetGuardianStats(connID: string, name: string): Promise<Record<string, unknown>>;
+}
+
+interface GreetServiceApi {
+  GetAppName(): Promise<string>;
+  GetVersion(): Promise<string>;
+  Greet(name: string): Promise<string>;
+}
+
+const AIService = AIServiceBinding as unknown as AIServiceApi;
+const CloudService = CloudServiceBinding as unknown as CloudServiceApi;
+const ConfigService = ConfigServiceBinding as unknown as ConfigServiceApi;
+const FirewallService = FirewallServiceBinding as unknown as FirewallServiceApi;
+const GreetService = GreetServiceBinding as unknown as GreetServiceApi;
+const PortForwardService = PortForwardServiceBinding as unknown as PortForwardServiceApi;
+const ProcessGuardianService = ProcessGuardianServiceBinding as unknown as ProcessGuardianServiceApi;
+const SSHService = SSHServiceBinding as unknown as SSHServiceApi;
 
 export const sshApi = {
   testConnection: (config: SSHConfig) => SSHService.TestConnection(config),
   createAndConnect: (config: SSHConfig) => SSHService.CreateAndConnect(config),
-  createAndConnectWithGroup: (config: SSHConfig, groupID: string) =>
-    SSHService.CreateAndConnectWithGroup(config, groupID),
+  createAndConnectWithGroup: (config: SSHConfig, groupID: string) => SSHService.CreateAndConnectWithGroup(config, groupID),
   connect: (connID: string, config: SSHConfig) => SSHService.Connect(connID, config),
   openSSHWindow: (groupID: string, groupName: string, activeConnID: string) =>
     SSHService.OpenSSHWindow(groupID, groupName, activeConnID),
   disconnect: (connID: string) => SSHService.Disconnect(connID),
   reconnect: (connID: string) => SSHService.Reconnect(connID),
-  getAllConnections: () => SSHService.GetAllConnections() as Promise<ConnectionInfo[]>,
-  getConnection: (id: string) => SSHService.GetConnection(id) as Promise<ConnectionInfo | null>,
+  getAllConnections: () => SSHService.GetAllConnections(),
+  getConnection: (id: string) => SSHService.GetConnection(id),
   updateConnection: (connection: ConnectionInfo) => SSHService.UpdateConnection(connection),
   addConnection: (connection: ConnectionInfo) => SSHService.AddConnection(connection),
   getAllGroups: () => SSHService.GetAllGroups(),
-  getGroupConnectionInfos: (groupID: string) =>
-    SSHService.GetGroupConnectionInfos(groupID) as Promise<ConnectionInfo[]>,
+  getGroupConnectionInfos: (groupID: string) => SSHService.GetGroupConnectionInfos(groupID),
   getDefaultGroupID: () => SSHService.GetDefaultGroupID(),
   createGroup: (name: string) => SSHService.CreateGroup(name),
   saveConnection: (id: string) => SSHService.SaveConnection(id),
   deleteConnection: (id: string) => SSHService.DeleteConnection(id),
-  startShellSession: (connID: string, sessionID: string) =>
-    SSHService.StartShellSessionWithID(connID, sessionID),
+  startShellSession: (connID: string, sessionID: string) => SSHService.StartShellSessionWithID(connID, sessionID),
   writeToTerminal: (connID: string, sessionID: string, data: string) =>
     SSHService.WriteToTerminalByID(connID, sessionID, data),
   resizeTerminal: (connID: string, sessionID: string, cols: number, rows: number) =>
     SSHService.ResizeTerminalByID(connID, sessionID, cols, rows),
-  closeShellSession: (connID: string, sessionID: string) =>
-    SSHService.CloseShellSessionByID(connID, sessionID),
+  closeShellSession: (connID: string, sessionID: string) => SSHService.CloseShellSessionByID(connID, sessionID),
   listFiles: (connID: string, path: string) => SSHService.ListFiles(connID, path),
   executeCommand: (connID: string, command: string) => SSHService.ExecuteCommand(connID, command),
   runCommand: (connID: string, command: string) => SSHService.RunCommand(connID, command),
@@ -57,7 +187,7 @@ export const sshApi = {
 };
 
 export const configApi = {
-  getConfig: () => ConfigService.GetConfig() as Promise<AppConfig>,
+  getConfig: () => ConfigService.GetConfig(),
   setConfig: (config: AppConfig) => ConfigService.SetConfig(config),
   get: (category: string, key: string) => ConfigService.Get(category, key),
   set: (category: string, key: string, value: unknown) => ConfigService.Set(category, key, value),
@@ -69,7 +199,7 @@ export const cloudApi = {
   disconnect: () => CloudService.Disconnect(),
   isConnected: () => CloudService.IsConnected(),
   pullSync: () => CloudService.PullSync(),
-  pushSync: (connections: ConnectionInfo[]) => CloudService.PushSync(connections),
+  pushSync: (connections: SyncConnection[]) => CloudService.PushSync(connections),
 };
 
 export const aiApi = AIService;

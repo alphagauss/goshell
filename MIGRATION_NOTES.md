@@ -839,6 +839,12 @@
 
 目标：把本文档放入仓库根目录 `MIGRATION_NOTES.md`，作为唯一迁移账本。
 
+状态：已完成
+
+重构方案：
+- 保留 `MIGRATION_NOTES.md` 作为仓库根目录唯一迁移账本。
+- 后续所有 step、缺口记录、阶段推进和验收标准都继续回写到这里，不再另起迁移文档。
+
 落点：
 
 - `MIGRATION_NOTES.md`
@@ -849,10 +855,20 @@
 
 目标：补齐 Dockview、Markdown、高亮、CodeMirror、xterm search/serialize、jszip 等依赖，并统一 Wails API 类型。
 
+状态：已完成
+
+重构方案：
+- 在 `frontend/package.json` 中补齐 Dockview、Marked、highlight.js、JSZip、xterm search/serialize，以及 CodeMirror 6 相关依赖。
+- 新增 `frontend/src/types/*`，把 App、SSH、AI、Cloud、事件、日志、终端和 Wails 返回值拆成可复用的公共模型。
+- 将 `frontend/src/lib/wails/types.ts` 改成统一导出入口，并把 `frontend/src/lib/wails/services.ts` 收紧成显式接口。
+- 顺手把当前已用到的组件对齐到新的类型边界，避免继续堆积临时 `interface` 和 `any`。
+
 落点：
 
 - `frontend/package.json`
-- `frontend/src/lib/wails.ts`
+- `frontend/src/lib/wails/index.ts`
+- `frontend/src/lib/wails/services.ts`
+- `frontend/src/lib/wails/types.ts`
 - `frontend/src/types/*`
 
 验收：`npm run build` 或对应包管理器 build 通过；无未声明类型导致的编译错误。
@@ -1080,4 +1096,3 @@ wails3 build
 6. 每个 Wails event 订阅必须有清理。
 7. 每个复杂功能必须有手工验收记录。
 8. React 版可以重新设计组件结构，但不能无意改变源项目用户行为。
-

@@ -4,15 +4,7 @@ import { Button } from "@/components/ui/button";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
 import { sshApi } from "@/lib/wails";
-
-interface FileInfo {
-  name?: string;
-  path?: string;
-  size?: number;
-  isDir?: boolean;
-  is_dir?: boolean;
-  modTime?: string;
-}
+import type { FileInfo } from "@/types";
 
 export function FilePanel({ connID }: { connID: string }) {
   const [path, setPath] = useState("/");

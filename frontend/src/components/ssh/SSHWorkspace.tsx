@@ -55,7 +55,11 @@ export function SSHWorkspace({
       const payload = eventPayload(event);
       if (payload?.groupID !== groupID) return;
       if (Array.isArray(payload.connections)) {
-        setConnections(payload.connections);
+        if (payload.connections.length === 0 || typeof payload.connections[0] === "string") {
+          void load();
+          return;
+        }
+        setConnections(payload.connections as ConnectionInfo[]);
       } else {
         void load();
       }

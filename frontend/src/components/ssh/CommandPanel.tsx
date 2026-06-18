@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
 import { sshApi } from "@/lib/wails";
+import type { CommandResult } from "@/types";
 
 export function CommandPanel({ connID }: { connID: string }) {
   const [command, setCommand] = useState("uname -a");
@@ -18,7 +19,7 @@ export function CommandPanel({ connID }: { connID: string }) {
       const text =
         typeof result === "string"
           ? result
-          : `${result?.stdout ?? result?.Stdout ?? ""}${result?.stderr || result?.Stderr ? `\n${result?.stderr ?? result?.Stderr}` : ""}`;
+          : `${(result as CommandResult | null)?.stdout ?? ""}${(result as CommandResult | null)?.stderr ? `\n${(result as CommandResult | null)?.stderr}` : ""}`;
       setOutput(text.trim() || JSON.stringify(result, null, 2));
     } catch (err) {
       setStatus(extractErrorMessage(err));
