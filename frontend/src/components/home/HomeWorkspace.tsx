@@ -91,7 +91,7 @@ export function HomeWorkspace({
               <ConnectionsPanel connections={connections} onChanged={onReload} />
             </TabsContent>
             <TabsContent value="settings">
-              <SettingsPanel config={config} onChanged={onReload} />
+              <SettingsPanel config={config} connections={connections} onChanged={onReload} />
             </TabsContent>
             <TabsContent value="cloud">
               <CloudPanel config={config} connections={connections} onChanged={onReload} />

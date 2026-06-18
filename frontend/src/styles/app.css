@@ -465,6 +465,40 @@ input {
   gap: 12px;
 }
 
+.settings-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--bg-panel);
+}
+
+.settings-section__heading {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-section__heading h3,
+.settings-section__heading p {
+  margin: 0;
+}
+
+.settings-section__heading h3 {
+  font-size: 13px;
+}
+
+.settings-section__heading p {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .settings-form label:not(.check-row) {
   display: grid;
   gap: 6px;

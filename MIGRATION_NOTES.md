@@ -948,11 +948,21 @@
 
 目标：迁移终端、快捷键、高级、窗口、云端、导入导出设置。
 
+状态：已完成
+
+重构方案：
+- 把设置页拆成终端、快捷键、高级、窗口、私有云端、导入/导出几个独立 section，避免一个大面板继续堆所有表单逻辑。
+- 新增 `CloudSettingsSection.tsx` 和 `ImportExportSection.tsx`，把云同步配置和配置文件导入/导出独立出来，使用明确的保存、连接、上传、下载和导入确认流程。
+- 在 `SettingsPanel.tsx` 中按后端真实配置字段写入 `terminal.*`、`shortcuts.*`、`advanced.*`、`ui.*`、`cloud.*`，并通过 `HomeWorkspace.tsx` 透传连接列表给云端 section。
+- 保留清除窗口位置这类危险操作的确认和日志，同时让设置变更能回写配置并在刷新后重新载入。
+
 落点：
 
 - `frontend/src/components/home/SettingsPanel.tsx`
 - `frontend/src/components/home/CloudSettingsSection.tsx`
 - `frontend/src/components/home/ImportExportSection.tsx`
+- `frontend/src/components/home/HomeWorkspace.tsx`
+- `frontend/src/styles/app.css`
 
 验收：所有源项目设置项可见、可保存、刷新后仍生效。
 
