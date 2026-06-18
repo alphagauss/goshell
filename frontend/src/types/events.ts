@@ -52,12 +52,35 @@ export interface AIToolApprovalEvent {
   command: string;
 }
 
+export interface AIToolExecuteEvent {
+  connId: string;
+  callId: string;
+  tool: string;
+  command: string;
+  args?: string;
+}
+
 export interface AIToolResultEvent {
   connId: string;
   callId: string;
   tool: string;
   command: string;
   result: string;
+}
+
+export interface AIChatClearedEvent {
+  connId: string;
+}
+
+export interface DockviewOpenTerminalEvent {
+  connID: string;
+  isAI?: boolean;
+}
+
+export interface DockviewCloseTerminalEvent {
+  connID: string;
+  sessionID?: string;
+  isAI?: boolean;
 }
 
 export interface LogEntryEvent {

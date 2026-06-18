@@ -5,8 +5,12 @@ import "dockview-react/dist/styles/dockview.css";
 import { Button } from "@/components/ui/button";
 import { useConfigStore } from "@/stores/configStore";
 import { logger } from "@/lib/logger";
-import { eventsApi } from "@/lib/wails";
-import type { DockviewTerminalsChangedEvent } from "@/types";
+import { eventPayload, eventsApi } from "@/lib/wails";
+import type {
+  DockviewCloseTerminalEvent,
+  DockviewOpenTerminalEvent,
+  DockviewTerminalsChangedEvent,
+} from "@/types";
 import {
   createWorkspacePanelId,
   createWorkspacePanelTitle,
@@ -65,13 +69,18 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
     const api = apiRef.current;
     if (!api) return;
 
-    const terminalCount = api.panels.filter((panel) => panel.api.getParameters<WorkspacePanelParams>().panelType === "terminal").length;
+    const terminalPanels = api.panels.filter(
+      (panel) => panel.api.getParameters<WorkspacePanelParams>().panelType === "terminal",
+    );
+    const terminalCount = terminalPanels.length;
+    const aiTerminalCount = terminalPanels.filter((panel) => panel.api.getParameters<WorkspacePanelParams>().isAI).length;
     const sessionID = createTerminalSessionID(nextConnID, isAI);
     const panelID = createWorkspacePanelId("terminal");
+
     api.addPanel({
       id: panelID,
       component: "terminal",
-      title: isAI ? "AI 终端" : createWorkspacePanelTitle("terminal", terminalCount + 1),
+      title: isAI ? `AI 终端 ${aiTerminalCount + 1}` : createWorkspacePanelTitle("terminal", terminalCount + 1),
       params: {
         connID: nextConnID,
         panelType: "terminal",
@@ -79,6 +88,7 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
         isAI,
       },
     });
+
     workspaceLog.info("打开终端面板", { connID: nextConnID, panelID, sessionID, isAI });
     emitTerminalsChanged(nextConnID);
   }
@@ -136,6 +146,34 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
     const api = apiRef.current;
     if (!api || !ready) return undefined;
 
+    const openTerminalUnsubscribe = eventsApi.on<DockviewOpenTerminalEvent>("dockview:open-terminal", (event) => {
+      const payload = eventPayload(event);
+      if (!payload || payload.connID !== connID) {
+        return;
+      }
+
+      openTerminal(payload.connID, Boolean(payload.isAI));
+    });
+
+    const closeTerminalUnsubscribe = eventsApi.on<DockviewCloseTerminalEvent>("dockview:close-terminal", (event) => {
+      const payload = eventPayload(event);
+      if (!payload || payload.connID !== connID) {
+        return;
+      }
+
+      const terminalPanels = api.panels.filter(
+        (panel) =>
+          panel.api.getParameters<WorkspacePanelParams>().panelType === "terminal" &&
+          (!payload.isAI || panel.api.getParameters<WorkspacePanelParams>().isAI),
+      );
+      const target = payload.sessionID
+        ? terminalPanels.find((panel) => panel.api.getParameters<WorkspacePanelParams>().sessionID === payload.sessionID)
+        : terminalPanels[terminalPanels.length - 1];
+
+      target?.api.close();
+      emitTerminalsChanged(connID);
+    });
+
     const addUnsubscribe = api.onDidAddPanel(() => emitTerminalsChanged(connID));
     const removeUnsubscribe = api.onDidRemovePanel(() => emitTerminalsChanged(connID));
     const activeUnsubscribe = api.onDidActivePanelChange(() => emitTerminalsChanged(connID));
@@ -143,6 +181,8 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
     emitTerminalsChanged(connID);
 
     return () => {
+      openTerminalUnsubscribe();
+      closeTerminalUnsubscribe();
       addUnsubscribe.dispose();
       removeUnsubscribe.dispose();
       activeUnsubscribe.dispose();
@@ -182,7 +222,7 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
         />
       </div>
 
-      {!ready ? <div className="dockview-loading">正在加载工作区…</div> : null}
+      {!ready ? <div className="dockview-loading">正在加载工作区...</div> : null}
     </div>
   );
 }

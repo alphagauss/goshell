@@ -1063,7 +1063,18 @@
 
 ### step-011：迁移 AI 助手
 
-目标：恢复 AI 配置、模型、Markdown、高亮、审批、工具执行、终端联动。
+状态：已完成
+
+目标：恢复 AI 配置、模型列表、Markdown 渲染、高亮、审批、工具执行和终端联动。
+
+重构方案：
+
+- 将 `frontend/src/components/ssh/AIChatPanel.tsx` 保持为轻量包装层，避免面板注册路径变化。
+- 新增 `frontend/src/components/ssh/ai/*`，把 AI 助手拆成配置区、消息区、审批队列、工具日志和 markdown 渲染组件。
+- 新增 `frontend/src/lib/aiToolExecutor.ts`，统一处理 `execute_command`、`get_server_info`、`get_system_status`、`multi_execute`、`open_terminal`、`close_terminal`。
+- 扩展 `frontend/src/stores/aiToolLogStore.ts`，支持按 `callId` 更新同一条工具日志。
+- 让 `DockviewWorkspace` 监听 `dockview:open-terminal` / `dockview:close-terminal`，由 AI 工具真正创建和关闭 AI 终端面板。
+- 让 AI 面板加载保存后的配置、远程模型列表和聊天历史，并订阅 `ai:status`、`ai:message`、`ai:tool-approval`、`ai:tool-result`。
 
 落点：
 
@@ -1071,8 +1082,16 @@
 - `frontend/src/components/ssh/ai/*`
 - `frontend/src/lib/aiToolExecutor.ts`
 - `frontend/src/stores/aiToolLogStore.ts`
+- `frontend/src/components/ssh/layout/DockviewWorkspace.tsx`
+- `frontend/src/styles/app.css`
 
-验收：AI 可安全审批并执行命令，能创建/使用终端。
+验证：
+
+- `cd frontend && npm run build`
+
+结果：
+
+- AI 面板现在可以保存配置、拉取模型、渲染 markdown、批准或拒绝工具调用、执行远程命令，并打开或关闭 AI 终端。
 
 ### step-012：迁移批量命令
 
