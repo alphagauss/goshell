@@ -895,6 +895,87 @@ input {
   font-size: 15px;
 }
 
+.dialog-body {
+  padding: 16px;
+  color: var(--text-secondary);
+}
+
+.dialog-body p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.toast-viewport {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.toast-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 12px 12px 10px;
+  background: var(--bg-panel-solid);
+  border: 1px solid var(--border-default);
+  border-left-width: 4px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+}
+
+.toast-item__icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+}
+
+.toast-item__body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.toast-item__body strong {
+  font-size: 13px;
+}
+
+.toast-item__body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.toast-item--info {
+  border-left-color: var(--accent-info);
+}
+
+.toast-item--success {
+  border-left-color: var(--accent-success);
+}
+
+.toast-item--warning {
+  border-left-color: var(--accent-warning);
+}
+
+.toast-item--danger {
+  border-left-color: var(--accent-danger);
+}
+
 @media (max-width: 760px) {
   .app-shell {
     grid-template-columns: 72px minmax(0, 1fr);

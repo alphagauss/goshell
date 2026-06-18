@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { KeyRound, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { configApi, eventsApi, sshApi, type AppConfig, type SSHConfig, type SSHGroup } from "@/lib/wails";
 
 const emptyForm: SSHConfig & { authType: "password" | "key"; target: "default" | "new" } = {
@@ -31,6 +33,8 @@ export function ConnectionForm({
     text: "",
   });
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const connectionLog = logger.scope("home.connection-form");
 
   const connectConfig = useMemo<SSHConfig>(
     () => ({
@@ -75,6 +79,12 @@ export function ConnectionForm({
     const error = validate();
     if (error) {
       setStatus({ tone: "danger", text: error });
+      toast.warning("连接测试未通过", error);
+      connectionLog.warn("连接测试校验失败", {
+        host: connectConfig.host,
+        username: connectConfig.username,
+        error,
+      });
       return;
     }
 
@@ -82,8 +92,22 @@ export function ConnectionForm({
     try {
       await sshApi.testConnection(connectConfig);
       setStatus({ tone: "success", text: "连接测试成功" });
+      toast.success("连接测试成功");
+      connectionLog.info("连接测试成功", {
+        host: connectConfig.host,
+        port: connectConfig.port,
+        username: connectConfig.username,
+      });
     } catch (err) {
-      setStatus({ tone: "danger", text: extractErrorMessage(err) });
+      const message = extractErrorMessage(err);
+      setStatus({ tone: "danger", text: message });
+      toast.error("连接测试失败", message);
+      connectionLog.error("连接测试失败", {
+        host: connectConfig.host,
+        port: connectConfig.port,
+        username: connectConfig.username,
+        error: message,
+      });
     } finally {
       setBusy(false);
     }
@@ -93,6 +117,12 @@ export function ConnectionForm({
     const error = validate();
     if (error) {
       setStatus({ tone: "danger", text: error });
+      toast.warning("连接未发起", error);
+      connectionLog.warn("连接校验失败", {
+        host: connectConfig.host,
+        username: connectConfig.username,
+        error,
+      });
       return;
     }
 
@@ -114,8 +144,21 @@ export function ConnectionForm({
 
       setForm(emptyForm);
       setStatus({ tone: "success", text: "已连接" });
+      toast.success("连接成功", connectConfig.name);
+      connectionLog.info("连接成功", {
+        name: connectConfig.name,
+        groupID: result.groupID ?? groupID,
+        connID: result.connID ?? "",
+      });
     } catch (err) {
-      setStatus({ tone: "danger", text: extractErrorMessage(err) });
+      const message = extractErrorMessage(err);
+      setStatus({ tone: "danger", text: message });
+      toast.error("连接失败", message);
+      connectionLog.error("连接失败", {
+        name: connectConfig.name,
+        host: connectConfig.host,
+        error: message,
+      });
     } finally {
       setBusy(false);
     }

@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { Plug, RefreshCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { sshApi, type ConnectionInfo, type SSHConfig } from "@/lib/wails";
 
 export function ConnectionsPanel({
@@ -14,6 +17,9 @@ export function ConnectionsPanel({
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const connectionsLog = logger.scope("home.connections");
 
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase();
@@ -48,8 +54,23 @@ export function ConnectionsPanel({
       };
       await onChanged();
       await sshApi.openSSHWindow(result.groupID ?? groupID, connection.name, result.connID ?? connection.id);
+      toast.success("连接已打开", connection.name || connection.host);
+      connectionsLog.info("保存连接已打开", {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+        groupID: result.groupID ?? groupID,
+      });
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      toast.error("连接失败", message);
+      connectionsLog.error("打开保存连接失败", {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+        error: message,
+      });
     }
   }
 
@@ -58,18 +79,57 @@ export function ConnectionsPanel({
     try {
       await sshApi.disconnect(connection.id);
       await onChanged();
+      toast.info("连接已断开", connection.name || connection.host);
+      connectionsLog.info("连接已断开", {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+      });
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      toast.error("断开连接失败", message);
+      connectionsLog.error("断开连接失败", {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+        error: message,
+      });
     }
   }
 
   async function remove(connection: ConnectionInfo) {
     setStatus("");
     try {
+      const confirmed = await confirm({
+        title: "删除连接",
+        description: `确定删除 ${connection.name || connection.host} 吗？此操作不可恢复。`,
+        confirmText: "删除",
+        cancelText: "取消",
+        danger: true,
+      });
+      if (!confirmed) {
+        return;
+      }
+
       await sshApi.deleteConnection(connection.id);
       await onChanged();
+      toast.success("连接已删除", connection.name || connection.host);
+      connectionsLog.warn("连接已删除", {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+      });
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      toast.error("删除连接失败", message);
+      connectionsLog.error("删除连接失败", {
+        id: connection.id,
+        name: connection.name,
+        host: connection.host,
+        error: message,
+      });
     }
   }
 

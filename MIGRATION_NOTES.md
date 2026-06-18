@@ -1,6 +1,6 @@
 # MIGRATION_NOTES
 
-最后更新：2026-06-16
+最后更新：2026-06-18
 
 ## 1. 文档目的
 
@@ -877,12 +877,25 @@
 
 目标：恢复消息提示、危险操作确认和应用操作日志。
 
+状态：已完成
+
+重构方案：
+- 新增 `frontend/src/components/ui/toast.tsx` 和 `frontend/src/components/ui/confirm.tsx`，分别提供全局提示和危险操作确认的上下文能力。
+- 新增 `frontend/src/lib/logger.ts` 与 `frontend/src/stores/logStore.ts`，把应用操作日志统一写入内存/本地持久化存储，并保留控制台输出。
+- 在首页连接流、连接列表和设置页接入 toast、confirm、logger，确保危险操作可确认、成功失败可提示、关键动作可落日志。
+- 在 `main.tsx` 挂载全局 Provider，补齐弹窗与提示样式，保证能力可被后续所有模块复用。
+
 落点：
 
-- `frontend/src/components/ui/toast*`
-- `frontend/src/components/ui/confirm*`
+- `frontend/src/components/ui/toast.tsx`
+- `frontend/src/components/ui/confirm.tsx`
 - `frontend/src/lib/logger.ts`
 - `frontend/src/stores/logStore.ts`
+- `frontend/src/components/home/ConnectionForm.tsx`
+- `frontend/src/components/home/ConnectionsPanel.tsx`
+- `frontend/src/components/home/SettingsPanel.tsx`
+- `frontend/src/main.tsx`
+- `frontend/src/styles/app.css`
 
 验收：任一模块可调用 toast/confirm/logger。
 
