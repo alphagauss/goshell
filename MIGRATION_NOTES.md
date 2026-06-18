@@ -994,11 +994,23 @@
 
 目标：修复固定 sessionID，建立多终端 session 生命周期。
 
+状态：已完成
+
+重构方案：
+- 新增 `frontend/src/components/ssh/terminal/sessionManager.ts`，把终端 session 的创建、注册、更新和销毁收口成统一入口。
+- 把 `TerminalPanel.tsx` 改成显式接收 `connID`、`sessionID`、`isAI`，不再在组件内部拼固定 `react-${connID}`。
+- 让 `DockviewWorkspace.tsx` 在打开终端面板时生成唯一 sessionID，并把它透传给 `panelRegistry.tsx` 和 `TerminalPanel.tsx`，从源头保证多终端互不串线。
+- 在终端启动完成后 emit `terminal:session-ready`，并同步更新 `terminalSessionsStore`，保证 session 生命周期、ready 状态和关闭清理都可追踪。
+
 落点：
 
 - `frontend/src/components/ssh/TerminalPanel.tsx`
 - `frontend/src/components/ssh/terminal/sessionManager.ts`
 - `frontend/src/stores/terminalSessionsStore.ts`
+- `frontend/src/components/ssh/layout/DockviewWorkspace.tsx`
+- `frontend/src/components/ssh/layout/panelRegistry.tsx`
+- `frontend/src/types/events.ts`
+- `frontend/src/types/terminal.ts`
 
 验收：同一连接多个终端互不串线；关闭面板关闭对应 session。
 

@@ -6,15 +6,25 @@ import "@xterm/xterm/css/xterm.css";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
 import { eventPayload, eventsApi, sshApi, type TerminalOutputEvent } from "@/lib/wails";
+import { endTerminalSession, markTerminalSessionError, markTerminalSessionReady, startTerminalSession } from "@/components/ssh/terminal/sessionManager";
+import type { TerminalSessionReadyEvent } from "@/types";
 
-export function TerminalPanel({ connID }: { connID: string }) {
+export function TerminalPanel({
+  connID,
+  sessionID,
+  isAI = false,
+}: {
+  connID: string;
+  sessionID: string;
+  isAI?: boolean;
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    if (!connID || !hostRef.current) return undefined;
+    if (!connID || !sessionID || !hostRef.current) return undefined;
 
-    const sessionID = `react-${connID}`;
+    startTerminalSession(connID, sessionID, isAI);
     const terminal = new Terminal({
       cursorBlink: true,
       convertEol: true,
@@ -57,8 +67,21 @@ export function TerminalPanel({ connID }: { connID: string }) {
     void sshApi
       .startShellSession(connID, sessionID)
       .then(() => sshApi.resizeTerminal(connID, sessionID, terminal.cols, terminal.rows))
+      .then(() => {
+        const payload: TerminalSessionReadyEvent = {
+          connID,
+          sessionID,
+          isAI,
+          timestamp: Date.now(),
+        };
+        markTerminalSessionReady(connID, sessionID, isAI);
+        eventsApi.emit("terminal:session-ready", payload);
+        setStatus("");
+      })
       .catch((err) => {
-        setStatus(extractErrorMessage(err));
+        const message = extractErrorMessage(err);
+        setStatus(message);
+        markTerminalSessionError(connID, sessionID, message, isAI);
       });
 
     return () => {
@@ -66,9 +89,10 @@ export function TerminalPanel({ connID }: { connID: string }) {
       dataSubscription.dispose();
       resizeObserver.disconnect();
       void sshApi.closeShellSession(connID, sessionID).catch(() => undefined);
+      endTerminalSession(connID, sessionID);
       terminal.dispose();
     };
-  }, [connID]);
+  }, [connID, sessionID, isAI]);
 
   return (
     <div className="terminal-panel">

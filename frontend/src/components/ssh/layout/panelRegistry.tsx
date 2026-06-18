@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { useRef } from "react";
 import {
   Bot,
   Files,
@@ -20,6 +21,7 @@ import { MonitorPanel } from "@/components/ssh/MonitorPanel";
 import { PortForwardPanel } from "@/components/ssh/PortForwardPanel";
 import { ProcessGuardPanel } from "@/components/ssh/ProcessGuardPanel";
 import { TerminalPanel } from "@/components/ssh/TerminalPanel";
+import { createTerminalSessionID } from "@/components/ssh/terminal/sessionManager";
 
 export type WorkspacePanelType =
   | "terminal"
@@ -35,6 +37,8 @@ export type WorkspacePanelType =
 export interface WorkspacePanelParams {
   connID: string;
   panelType: WorkspacePanelType;
+  sessionID?: string;
+  isAI?: boolean;
 }
 
 export interface WorkspacePanelDefinition {
@@ -48,6 +52,23 @@ export interface WorkspacePanelDefinition {
 function createPanelComponent(render: (connID: string) => JSX.Element) {
   return function WorkspacePanel(props: IDockviewPanelProps<WorkspacePanelParams>) {
     return render(props.params.connID);
+  };
+}
+
+function createTerminalPanelComponent() {
+  return function WorkspaceTerminalPanel(props: IDockviewPanelProps<WorkspacePanelParams>) {
+    const fallbackSessionID = useRef(
+      createTerminalSessionID(props.params.connID, Boolean(props.params.isAI)),
+    );
+    const sessionID = props.params.sessionID ?? fallbackSessionID.current;
+
+    return (
+      <TerminalPanel
+        connID={props.params.connID}
+        sessionID={sessionID}
+        isAI={Boolean(props.params.isAI)}
+      />
+    );
   };
 }
 
@@ -67,7 +88,7 @@ export const dockviewPanelComponents: Record<
   WorkspacePanelType,
   (props: IDockviewPanelProps<WorkspacePanelParams>) => JSX.Element
 > = {
-  terminal: createPanelComponent((connID) => <TerminalPanel connID={connID} />),
+  terminal: createTerminalPanelComponent(),
   file: createPanelComponent((connID) => <FilePanel connID={connID} />),
   monitor: createPanelComponent((connID) => <MonitorPanel connID={connID} />),
   ai: createPanelComponent((connID) => <AIChatPanel connID={connID} />),

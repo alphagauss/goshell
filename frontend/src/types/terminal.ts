@@ -4,6 +4,7 @@ export interface TerminalSession {
   title?: string;
   mode?: string;
   status?: string;
+  isAI?: boolean;
   createdAt?: number;
   updatedAt?: number;
 }

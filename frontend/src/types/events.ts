@@ -22,7 +22,15 @@ export interface GroupUpdatedEvent {
 export interface DockviewTerminalsChangedEvent {
   connID: string;
   terminalPanelIDs: string[];
+  terminalSessionIDs?: string[];
   activePanelID?: string;
+  timestamp: number;
+}
+
+export interface TerminalSessionReadyEvent {
+  connID: string;
+  sessionID: string;
+  isAI: boolean;
   timestamp: number;
 }
 

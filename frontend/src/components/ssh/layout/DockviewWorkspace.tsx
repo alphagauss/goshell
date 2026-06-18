@@ -17,6 +17,7 @@ import {
   workspacePanelDefinitions,
 } from "@/components/ssh/layout/panelRegistry";
 import { createWorkspaceContextMenu } from "@/components/ssh/layout/PanelContextMenu";
+import { createTerminalSessionID } from "@/components/ssh/terminal/sessionManager";
 
 export function DockviewWorkspace({ connID }: { connID: string }) {
   const [ready, setReady] = useState(false);
@@ -44,10 +45,15 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
     const terminalPanelIDs = api.panels
       .filter((panel) => panel.api.getParameters<WorkspacePanelParams>().panelType === "terminal")
       .map((panel) => panel.id);
+    const terminalSessionIDs = api.panels
+      .filter((panel) => panel.api.getParameters<WorkspacePanelParams>().panelType === "terminal")
+      .map((panel) => panel.api.getParameters<WorkspacePanelParams>().sessionID)
+      .filter((sessionID): sessionID is string => Boolean(sessionID));
 
     const payload: DockviewTerminalsChangedEvent = {
       connID: nextConnID,
       terminalPanelIDs,
+      terminalSessionIDs,
       activePanelID: api.activePanel?.id,
       timestamp: Date.now(),
     };
@@ -55,22 +61,25 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
     eventsApi.emit("dockview:terminals-changed", payload);
   }
 
-  function openTerminal(nextConnID = connID) {
+  function openTerminal(nextConnID = connID, isAI = false) {
     const api = apiRef.current;
     if (!api) return;
 
     const terminalCount = api.panels.filter((panel) => panel.api.getParameters<WorkspacePanelParams>().panelType === "terminal").length;
+    const sessionID = createTerminalSessionID(nextConnID, isAI);
     const panelID = createWorkspacePanelId("terminal");
     api.addPanel({
       id: panelID,
       component: "terminal",
-      title: createWorkspacePanelTitle("terminal", terminalCount + 1),
+      title: isAI ? "AI 终端" : createWorkspacePanelTitle("terminal", terminalCount + 1),
       params: {
         connID: nextConnID,
         panelType: "terminal",
+        sessionID,
+        isAI,
       },
     });
-    workspaceLog.info("打开终端面板", { connID: nextConnID, panelID });
+    workspaceLog.info("打开终端面板", { connID: nextConnID, panelID, sessionID, isAI });
     emitTerminalsChanged(nextConnID);
   }
 

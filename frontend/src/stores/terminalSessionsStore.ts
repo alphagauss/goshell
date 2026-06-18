@@ -15,6 +15,14 @@ export function useTerminalSessionsStore() {
   return store.useStore();
 }
 
+export function getTerminalSessionsSnapshot() {
+  return store.getState().sessions;
+}
+
+export function getTerminalSessionSnapshot(connID: string, sessionID: string) {
+  return store.getState().sessions.find((item) => item.connID === connID && item.sessionID === sessionID);
+}
+
 export function setTerminalSessionsSnapshot(sessions: TerminalSession[]) {
   store.setState({
     sessions,
