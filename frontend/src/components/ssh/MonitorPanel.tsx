@@ -3,6 +3,7 @@ import { Activity, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { sshApi, type ProcessInfo, type SystemStats } from "@/lib/wails";
 
 function formatPercent(value: unknown) {
@@ -46,8 +47,9 @@ export function MonitorPanel({ connID }: { connID: string }) {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+  const monitorLog = logger.scope("ssh.monitor");
 
-  async function load() {
+  async function load(manual = false) {
     if (!connID) return;
     setLoading(true);
     setStatus("");
@@ -58,8 +60,17 @@ export function MonitorPanel({ connID }: { connID: string }) {
       ]);
       setStats(nextStats ?? null);
       setProcesses(Array.isArray(nextProcesses) ? nextProcesses.slice(0, 20) : []);
+      if (manual) {
+        monitorLog.info("监控数据已刷新", {
+          connID,
+          cpu: nextStats?.cpu?.usagePercent ?? nextStats?.cpu?.usage,
+          processes: Array.isArray(nextProcesses) ? nextProcesses.length : 0,
+        });
+      }
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      monitorLog.error("加载监控数据失败", { connID, error: message });
     } finally {
       setLoading(false);
     }
@@ -85,7 +96,7 @@ export function MonitorPanel({ connID }: { connID: string }) {
         <h2>监控</h2>
         <div className="monitor-panel__actions">
           <span className="status-pill">{stats?.uptime ?? "暂无数据"}</span>
-          <Button variant="ghost" size="icon" onClick={() => void load()} aria-label="刷新" disabled={loading}>
+          <Button variant="ghost" size="icon" onClick={() => void load(true)} aria-label="刷新" disabled={loading}>
             <RefreshCcw size={15} className={loading ? "is-spinning" : ""} />
           </Button>
         </div>

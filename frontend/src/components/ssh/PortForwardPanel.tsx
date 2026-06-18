@@ -5,6 +5,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { portForwardApi, type PortForward } from "@/lib/wails";
 
 type ForwardType = "local" | "remote";
@@ -74,6 +75,7 @@ export function PortForwardPanel({ connID }: { connID: string }) {
   const [form, setForm] = useState<ForwardFormState>(() => createDefaultForm());
   const confirm = useConfirm();
   const toast = useToast();
+  const portForwardLog = logger.scope("ssh.port-forward");
 
   async function load() {
     setLoading(true);
@@ -82,7 +84,9 @@ export function PortForwardPanel({ connID }: { connID: string }) {
       setItems(Array.isArray(result) ? result : []);
       setStatus("");
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      portForwardLog.error("加载端口转发失败", { connID, error: message });
     } finally {
       setLoading(false);
     }
@@ -97,6 +101,7 @@ export function PortForwardPanel({ connID }: { connID: string }) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error(title, message);
+      portForwardLog.error(title, { connID, error: message });
     }
   }
 
@@ -109,10 +114,12 @@ export function PortForwardPanel({ connID }: { connID: string }) {
       const remoteHost = form.remoteHost.trim();
       if (!bindAddr) {
         setStatus("请输入绑定地址");
+        portForwardLog.warn("端口转发校验失败", { connID, reason: "empty-bind-addr" });
         return;
       }
       if (!remoteHost) {
         setStatus("请输入远程地址");
+        portForwardLog.warn("端口转发校验失败", { connID, reason: "empty-remote-host" });
         return;
       }
 
@@ -132,11 +139,21 @@ export function PortForwardPanel({ connID }: { connID: string }) {
         setEditingID(null);
         setForm(createDefaultForm());
         toast.success(actionLabel, result ? getForwardTitle(result) : `${bindAddr}:${bindPort} -> ${remoteHost}:${remotePort}`);
+        portForwardLog.info("端口转发已保存", {
+          connID,
+          action: editingForwardID ? "update" : "create",
+          type: form.type,
+          bindAddr,
+          bindPort,
+          remoteHost,
+          remotePort,
+        });
       });
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error(actionLabel, message);
+      portForwardLog.error(actionLabel, { connID, error: message });
     }
   }
 
@@ -170,6 +187,7 @@ export function PortForwardPanel({ connID }: { connID: string }) {
         setForm(createDefaultForm());
       }
       toast.info("端口转发已删除", getForwardTitle(item));
+      portForwardLog.warn("端口转发已删除", { connID, id: item.id, type: item.type, bindAddr: item.bindAddr });
     });
   }
 
@@ -182,6 +200,13 @@ export function PortForwardPanel({ connID }: { connID: string }) {
         await portForwardApi.StartForward(item.id);
       }
       toast.success(`端口转发已${nextAction}`, getForwardTitle(item));
+      portForwardLog.info("端口转发状态已变更", {
+        connID,
+        id: item.id,
+        action: item.status === "running" ? "stop" : "start",
+        bindAddr: item.bindAddr,
+        bindPort: item.bindPort,
+      });
     });
   }
 

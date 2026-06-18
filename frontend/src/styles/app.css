@@ -2005,6 +2005,127 @@ input {
   border-color: var(--border-danger);
 }
 
+.status-pill--warning {
+  color: var(--accent-warning);
+  background: var(--warning-bg);
+  border-color: var(--border-warning);
+}
+
+.logs-panel {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.logs-panel__subtitle {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.logs-panel__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.logs-panel__filter {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 220px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.logs-panel__filter--search {
+  flex: 2 1 320px;
+}
+
+.logs-panel__filter .input-base {
+  width: 100%;
+}
+
+.logs-panel__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logs-panel__list {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.logs-panel__entry {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.logs-panel__entry-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.logs-panel__entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.logs-panel__entry-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logs-panel__entry-meta span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.logs-panel__entry-time {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.logs-panel__entry-message {
+  margin: 0;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.logs-panel__entry-details {
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  color: var(--text-secondary);
+  background: var(--bg-terminal);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .command-output {
   min-height: 240px;
   margin: 12px 0 0;

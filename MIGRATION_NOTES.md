@@ -1136,15 +1136,17 @@
 
 ### step-015：迁移日志面板
 
+状态：已完成
 目标：恢复应用日志，而不是只展示远程系统日志。
-
-落点：
-
-- `frontend/src/components/ssh/LogsPanel.tsx`
-- `frontend/src/lib/logger.ts`
-- `frontend/src/stores/logStore.ts`
-
-验收：各模块操作均产生可过滤日志。
+重构方案：
+- 重写 `frontend/src/components/ssh/LogsPanel.tsx`，直接读取本地 `logStore`，按作用域、级别和关键字筛选应用日志，并支持清空本地日志。
+- 复用现有 `frontend/src/lib/logger.ts` 和 `frontend/src/stores/logStore.ts` 作为统一日志底座，不再依赖远程系统日志命令。
+- 补充 `frontend/src/components/ssh/BatchCommandPanel.tsx`、`frontend/src/components/ssh/PortForwardPanel.tsx`、`frontend/src/components/ssh/FirewallPanel.tsx`、`frontend/src/components/ssh/ProcessGuardPanel.tsx`、`frontend/src/components/ssh/MonitorPanel.tsx` 的日志埋点，让新的 SSH 操作入口也进入日志面板。
+- 增补 `frontend/src/styles/app.css` 的日志面板布局、筛选区和 warning 徽章样式。
+验证：
+- `cd frontend && npm run build`
+结果：
+- 日志面板现在展示本地应用日志，并可按作用域、级别和关键字过滤；批量命令、端口转发、防火墙、守护进程和监控刷新都会产生日志。
 
 ### step-016：样式与交互回归
 

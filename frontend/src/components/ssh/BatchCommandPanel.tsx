@@ -3,6 +3,7 @@ import { CheckSquare, Play, RefreshCcw, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { sshApi, type CommandResult, type ConnectionInfo } from "@/lib/wails";
 import { useSSHConnectionsStore } from "@/stores/sshConnectionsStore";
 
@@ -54,6 +55,7 @@ export function BatchCommandPanel({ connID }: { connID: string }) {
   const [statusTone, setStatusTone] = useState<"muted" | "success" | "danger" | "warning">("muted");
   const [running, setRunning] = useState(false);
   const initializedSelectionRef = useRef(false);
+  const batchLog = logger.scope("ssh.batch-command");
 
   const selectedConnections = connections.filter((connection) => selectedConnIDs.includes(connection.id));
 
@@ -99,18 +101,26 @@ export function BatchCommandPanel({ connID }: { connID: string }) {
     if (!commandText) {
       setStatusTone("danger");
       setStatus("请先输入命令");
+      batchLog.warn("批量命令校验失败", { connID, reason: "empty-command" });
       return;
     }
 
     if (selectedConnections.length === 0) {
       setStatusTone("danger");
       setStatus("请先选择至少一个连接");
+      batchLog.warn("批量命令校验失败", { connID, reason: "no-selection" });
       return;
     }
 
     setRunning(true);
     setStatusTone("warning");
     setStatus(`正在执行 ${selectedConnections.length} 个连接`);
+    batchLog.info("批量命令开始执行", {
+      connID,
+      command: commandText,
+      count: selectedConnections.length,
+      targets: selectedConnections.map((connection) => connection.id),
+    });
     setResults(
       selectedConnections.map((connection) => ({
         connID: connection.id,
@@ -144,6 +154,12 @@ export function BatchCommandPanel({ connID }: { connID: string }) {
           ? `已完成 ${selectedConnections.length} 个连接，${failureCount} 个失败`
           : `已完成 ${selectedConnections.length} 个连接`,
       );
+      batchLog[failureCount > 0 ? "warn" : "info"]("批量命令执行完成", {
+        connID,
+        command: commandText,
+        count: selectedConnections.length,
+        failures: failureCount,
+      });
     } finally {
       setRunning(false);
     }

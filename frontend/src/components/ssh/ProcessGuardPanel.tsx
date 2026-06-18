@@ -5,6 +5,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { processGuardianApi, type GuardianProcess } from "@/lib/wails";
 
 interface GuardianFormState {
@@ -35,6 +36,7 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
   const confirm = useConfirm();
   const toast = useToast();
   const selectedNameRef = useRef("");
+  const guardLog = logger.scope("ssh.process-guard");
 
   async function load() {
     if (!connID) return;
@@ -50,7 +52,9 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
         setGuardianLogs("");
       }
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      guardLog.error("加载守护进程列表失败", { connID, error: message });
     } finally {
       setLoading(false);
     }
@@ -67,10 +71,12 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
       ]);
       setGuardianStats(stats ?? null);
       setGuardianLogs(logs || "");
+      guardLog.info("守护进程详情已加载", { connID, name });
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error("加载守护进程详情", message);
+      guardLog.error("加载守护进程详情失败", { connID, name, error: message });
     } finally {
       setDetailLoading(false);
     }
@@ -83,6 +89,7 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
 
     if (!name || !command) {
       setStatus("请输入守护进程名称和命令");
+      guardLog.warn("守护进程校验失败", { connID, reason: "empty-name-or-command" });
       return;
     }
 
@@ -90,12 +97,14 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
     try {
       await processGuardianApi.CreateGuardian(connID, name, command, workDir, form.autoRestart);
       toast.success("守护进程已创建", name);
+      guardLog.info("守护进程已创建", { connID, name, command, workDir, autoRestart: form.autoRestart });
       setForm(createDefaultGuardianForm());
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error("创建守护进程", message);
+      guardLog.error("创建守护进程失败", { connID, name, command, workDir, autoRestart: form.autoRestart, error: message });
     }
   }
 
@@ -106,11 +115,13 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
       if (kind === "stop") await processGuardianApi.StopGuardian(connID, name);
       if (kind === "restart") await processGuardianApi.RestartGuardian(connID, name);
       toast.success(`守护进程已${kind === "start" ? "启动" : kind === "stop" ? "停止" : "重启"}`, name);
+      guardLog[kind === "stop" ? "warn" : "info"]("守护进程状态已变更", { connID, name, action: kind });
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error(`守护进程${kind === "start" ? "启动" : kind === "stop" ? "停止" : "重启"}失败`, message);
+      guardLog.error("守护进程状态变更失败", { connID, name, action: kind, error: message });
     }
   }
 
@@ -135,11 +146,13 @@ export function ProcessGuardPanel({ connID }: { connID: string }) {
         setGuardianLogs("");
       }
       toast.info("守护进程已删除", name);
+      guardLog.warn("守护进程已删除", { connID, name });
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error("删除守护进程", message);
+      guardLog.error("删除守护进程失败", { connID, name, error: message });
     }
   }
 

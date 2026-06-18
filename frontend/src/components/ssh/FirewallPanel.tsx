@@ -5,6 +5,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
 import { StatusLine } from "@/components/StatusLine";
 import { extractErrorMessage } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { firewallApi, type FirewallInfo, type FirewallRule } from "@/lib/wails";
 
 interface FirewallRuleFormState {
@@ -84,6 +85,7 @@ export function FirewallPanel({ connID }: { connID: string }) {
   const [loading, setLoading] = useState(false);
   const confirm = useConfirm();
   const toast = useToast();
+  const firewallLog = logger.scope("ssh.firewall");
 
   async function load() {
     setLoading(true);
@@ -92,7 +94,9 @@ export function FirewallPanel({ connID }: { connID: string }) {
       setInfo(nextInfo ?? null);
       setStatus("");
     } catch (err) {
-      setStatus(extractErrorMessage(err));
+      const message = extractErrorMessage(err);
+      setStatus(message);
+      firewallLog.error("加载防火墙信息失败", { connID, error: message });
     } finally {
       setLoading(false);
     }
@@ -115,11 +119,17 @@ export function FirewallPanel({ connID }: { connID: string }) {
     try {
       await firewallApi.ToggleFirewall(connID, toggle.enable);
       toast.success(toggle.label, getFirewallSummary(info));
+      firewallLog[toggle.enable ? "info" : "warn"]("防火墙状态已切换", {
+        connID,
+        enable: toggle.enable,
+        type: info?.type,
+      });
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error(toggle.label, message);
+      firewallLog.error("切换防火墙失败", { connID, enable: toggle.enable, error: message });
     }
   }
 
@@ -133,6 +143,7 @@ export function FirewallPanel({ connID }: { connID: string }) {
 
     if (!port) {
       setStatus("请输入端口或服务名");
+      firewallLog.warn("防火墙规则校验失败", { connID, reason: "empty-port" });
       return;
     }
 
@@ -140,12 +151,21 @@ export function FirewallPanel({ connID }: { connID: string }) {
     try {
       await firewallApi.AddRule(connID, scope, target, protocol, port, source, comment);
       toast.success("防火墙规则已添加", `${scope} ${port}`);
+      firewallLog.info("防火墙规则已添加", {
+        connID,
+        scope,
+        target,
+        protocol,
+        port,
+        source,
+      });
       setRuleForm(createDefaultRuleForm(info?.type));
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error("添加防火墙规则", message);
+      firewallLog.error("添加防火墙规则失败", { connID, scope, target, protocol, port, error: message });
     }
   }
 
@@ -165,23 +185,45 @@ export function FirewallPanel({ connID }: { connID: string }) {
     try {
       await firewallApi.DeleteRule(connID, rule.chain, rule.index, rule.port, rule.protocol);
       toast.info("防火墙规则已删除", getRuleTitle(rule));
+      firewallLog.warn("防火墙规则已删除", {
+        connID,
+        chain: rule.chain,
+        index: rule.index,
+        port: rule.port,
+        protocol: rule.protocol,
+      });
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error("删除防火墙规则", message);
+      firewallLog.error("删除防火墙规则失败", {
+        connID,
+        chain: rule.chain,
+        index: rule.index,
+        port: rule.port,
+        protocol: rule.protocol,
+        error: message,
+      });
     }
   }
 
   async function runCustomCommand() {
     setStatus("");
     try {
-      setOutput(String(await firewallApi.RunCustomCommand(connID, command)));
+      const result = String(await firewallApi.RunCustomCommand(connID, command));
+      setOutput(result);
+      firewallLog.info("防火墙自定义命令已执行", {
+        connID,
+        command,
+        outputLength: result.length,
+      });
       await load();
     } catch (err) {
       const message = extractErrorMessage(err);
       setStatus(message);
       toast.error("执行防火墙命令", message);
+      firewallLog.error("执行防火墙命令失败", { connID, command, error: message });
     }
   }
 
