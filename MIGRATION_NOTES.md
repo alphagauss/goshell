@@ -1107,14 +1107,18 @@
 - 命令面板现在支持多连接批量执行，并逐连接展示结果。
 
 ### step-013：迁移端口转发
-
+状态：已完成
 目标：恢复 local/remote、启停、编辑、删除、统计。
-
-落点：
-
-- `frontend/src/components/ssh/PortForwardPanel.tsx`
-
-验收：local/remote 都可用，状态和流量刷新正常。
+重构方案：
+- 重写 `frontend/src/components/ssh/PortForwardPanel.tsx`，支持本地/远程转发切换，并按当前表单类型调用 `AddLocalForward` 或 `AddRemoteForward`。
+- 为每条转发规则补齐启动、停止、编辑、删除四类操作，删除前弹出确认对话框，编辑则采用“移除旧规则后重新创建”的方式保持行为一致。
+- 面板定时刷新转发列表，直接展示 `status`、`activeConns`、`totalConns`、`bytesSent` 和 `bytesRecv`，让状态和流量变化可见。
+- 新增单条错误提示与 toast 反馈，避免所有失败都静默落在空白列表里。
+- 扩展 `frontend/src/styles/app.css` 以承载新的表单、列表、统计和动作布局。
+验证：
+- `cd frontend && npm run build`
+结果：
+- local/remote 转发、启停、编辑、删除和统计刷新都已在前端可用。
 
 ### step-014：迁移防火墙、进程守护、监控
 
