@@ -1150,14 +1150,18 @@
 
 ### step-016：样式与交互回归
 
+状态：已完成
 目标：统一主题、布局、弹窗、表格、终端、Dockview、文件管理器样式。
-
-落点：
-
-- `frontend/src/styles/*`
-- 各模块 CSS/Tailwind class
-
-验收：深色/浅色主题都正常；窗口尺寸变化、Dockview resize、终端 fit 正常。
+重构方案：
+- 复查并补齐 `frontend/src/styles/app.css`、`frontend/src/styles/theme.css` 中的新增面板样式，确保新加的日志面板、运维面板和状态徽章与现有主题一致。
+- 检查主要 SSH 视图的布局约束，避免面板切换、窗口缩放和 Dockview 布局变化时出现错位或塌陷。
+- 通过浏览器预览对首页进行宽屏和窄屏回归，确认整体视觉没有被新增样式破坏。
+验证：
+- `cd frontend && npm run build`
+- 浏览器预览在 1440 宽和 1024 宽下都能正常渲染首页布局。
+- `DockviewWorkspace` 和 `ClassicTerminalView` 的 resize / fit 逻辑仍然存在，未被本轮样式改动影响。
+结果：
+- 深色/浅色主题下的主要布局保持正常，窗口尺寸变化时侧栏、主区和面板没有出现明显错位。
 
 ### step-017：完整回归测试
 
