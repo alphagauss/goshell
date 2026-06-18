@@ -1036,6 +1036,18 @@
 
 目标：恢复 SFTP 文件管理器。
 
+状态：已完成
+
+重构方案：
+
+- 新增 `frontend/src/components/ssh/file-manager/FileManagerPanel.tsx` 作为文件管理主入口，并保留 `FilePanel.tsx` 作为薄包装，避免现有面板注册链路继续分叉。
+- 将文件管理拆成工具栏、表格、动作菜单、预览弹窗、编辑弹窗、权限弹窗、上传任务面板等组件，避免把导航、操作、弹窗和上传状态堆在一个文件里。
+- 新增 `useRemoteSearch` 和 `useUploadTasks`，分别处理递归搜索事件流和上传/目录上传/归档下载任务状态。
+- 通过 `frontend/src/lib/wails/services.ts` 补齐文件管理所需的 SFTP API 封装，复用后端现有的 list、upload、download、delete、rename、mkdir、archive、search 能力。
+- 预览与编辑通过 `downloadFile` 拉取 base64 内容，文本文件进入 CodeMirror 编辑器，保存时再用 `uploadFile` 回写远端。
+- 批量下载优先走后端 `CreateArchive` 生成归档，再下载临时归档并删除远端临时文件。
+- 危险操作统一走 `useConfirm`，所有文件操作都写入 `logger` 并通过 `useToast` 给出成功/失败反馈。
+
 落点：
 
 - `frontend/src/components/ssh/file-manager/FileManagerPanel.tsx`
@@ -1044,6 +1056,10 @@
 - `frontend/src/components/ssh/file-manager/utils/*`
 
 验收：上传、下载、预览、编辑、权限、搜索、批量操作均可用。
+
+验证：
+
+- `cd frontend && npm run build`
 
 ### step-011：迁移 AI 助手
 

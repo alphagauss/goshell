@@ -63,6 +63,18 @@ interface SSHServiceApi {
   GetServerKey(connID: string): Promise<string>;
   GetGroupByConnID(connID: string): Promise<SSHGroup | null>;
   CloseGroup(groupID: string): Promise<void>;
+  DeleteFile(connID: string, remotePath: string): Promise<void>;
+  CreateDirectory(connID: string, remotePath: string): Promise<void>;
+  RenameFile(connID: string, oldPath: string, newPath: string): Promise<void>;
+  UploadFile(connID: string, remotePath: string, data: string): Promise<void>;
+  DownloadFile(connID: string, remotePath: string): Promise<string>;
+  UploadDirectory(connID: string, localPath: string, remotePath: string): Promise<void>;
+  SelectLocalDirectoryAndUpload(connID: string, remotePath: string): Promise<void>;
+  CreateArchive(connID: string, files: string[], archiveName: string): Promise<string>;
+  DeleteTempFile(connID: string, filePath: string): Promise<void>;
+  ExtractArchive(connID: string, archivePath: string, targetDir: string): Promise<void>;
+  SearchFiles(connID: string, basePath: string, keyword: string, searchID: string): Promise<void>;
+  CancelSearch(connID: string, searchID: string): Promise<void>;
 }
 
 interface ConfigServiceApi {
@@ -184,6 +196,23 @@ export const sshApi = {
   getSystemStats: (connID: string) => SSHService.GetSystemStats(connID),
   getProcessList: (connID: string) => SSHService.GetProcessList(connID),
   clearWindowPositions: () => SSHService.ClearWindowPositions(),
+  deleteFile: (connID: string, remotePath: string) => SSHService.DeleteFile(connID, remotePath),
+  createDirectory: (connID: string, remotePath: string) => SSHService.CreateDirectory(connID, remotePath),
+  renameFile: (connID: string, oldPath: string, newPath: string) => SSHService.RenameFile(connID, oldPath, newPath),
+  uploadFile: (connID: string, remotePath: string, data: string) => SSHService.UploadFile(connID, remotePath, data),
+  downloadFile: (connID: string, remotePath: string) => SSHService.DownloadFile(connID, remotePath),
+  uploadDirectory: (connID: string, localPath: string, remotePath: string) =>
+    SSHService.UploadDirectory(connID, localPath, remotePath),
+  selectLocalDirectoryAndUpload: (connID: string, remotePath: string) =>
+    SSHService.SelectLocalDirectoryAndUpload(connID, remotePath),
+  createArchive: (connID: string, files: string[], archiveName: string) =>
+    SSHService.CreateArchive(connID, files, archiveName),
+  deleteTempFile: (connID: string, filePath: string) => SSHService.DeleteTempFile(connID, filePath),
+  extractArchive: (connID: string, archivePath: string, targetDir: string) =>
+    SSHService.ExtractArchive(connID, archivePath, targetDir),
+  searchFiles: (connID: string, basePath: string, keyword: string, searchID: string) =>
+    SSHService.SearchFiles(connID, basePath, keyword, searchID),
+  cancelSearch: (connID: string, searchID: string) => SSHService.CancelSearch(connID, searchID),
 };
 
 export const configApi = {
