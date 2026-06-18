@@ -9,6 +9,8 @@ import {
   type ConnectionsUpdatedEvent,
   type ConnectionInfo,
 } from "@/lib/wails";
+import { setConfigLoading, setConfigSnapshot } from "@/stores/configStore";
+import { setConnectionsLoading, setConnectionsSnapshot } from "@/stores/sshConnectionsStore";
 
 export function useAppData() {
   const [version, setVersion] = useState("");
@@ -18,6 +20,8 @@ export function useAppData() {
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setConfigLoading(true);
+    setConnectionsLoading(true);
     const [versionResult, configResult, connectionsResult] = await Promise.allSettled([
       greetApi.GetVersion(),
       configApi.getConfig(),
@@ -30,11 +34,16 @@ export function useAppData() {
     if (configResult.status === "fulfilled") {
       const nextConfig = configResult.value;
       setConfig(nextConfig);
+      setConfigSnapshot(nextConfig);
       document.documentElement.dataset.theme = nextConfig.ui?.theme ?? "dark";
     }
     if (connectionsResult.status === "fulfilled") {
-      setConnections(Array.isArray(connectionsResult.value) ? connectionsResult.value : []);
+      const nextConnections = Array.isArray(connectionsResult.value) ? connectionsResult.value : [];
+      setConnections(nextConnections);
+      setConnectionsSnapshot(nextConnections);
     }
+    setConfigLoading(false);
+    setConnectionsLoading(false);
     setLoading(false);
   }, []);
 
@@ -43,7 +52,9 @@ export function useAppData() {
 
     const unsubscribe = eventsApi.on<ConnectionsUpdatedEvent>("ssh:connections-updated", (event) => {
       const payload = eventPayload(event);
-      setConnections(Array.isArray(payload?.connections) ? payload.connections : []);
+      const nextConnections = Array.isArray(payload?.connections) ? payload.connections : [];
+      setConnections(nextConnections);
+      setConnectionsSnapshot(nextConnections);
     });
 
     return unsubscribe;

@@ -903,14 +903,25 @@
 
 目标：建立 config、connections、layout、terminalSessions、commandHistory、aiToolLog 等 store。
 
+状态：已完成
+
+重构方案：
+- 新增 `frontend/src/stores/createStore.ts` 作为轻量 external store 基础，避免后续每个模块重复实现订阅、发布和 `useSyncExternalStore` 接线。
+- 按迁移清单补齐 `config`、`sshConnections`、`sshLayout`、`terminalSessions`、`commandHistory`、`aiToolLog` 六个 store 文件，先把状态骨架和常用更新动作立起来。
+- 让 `useAppData.ts` 在加载和事件刷新时同步写入 config / connections store，避免页面层继续各自维护同一份后端快照。
+- 让 `App.tsx` 直接读取 `sshLayoutStore` 的首页视图状态，确认 store 不只是“文件存在”，而是已经进入页面级使用链路。
+
 落点：
 
+- `frontend/src/stores/createStore.ts`
 - `frontend/src/stores/configStore.ts`
 - `frontend/src/stores/sshConnectionsStore.ts`
 - `frontend/src/stores/sshLayoutStore.ts`
 - `frontend/src/stores/terminalSessionsStore.ts`
 - `frontend/src/stores/commandHistoryStore.ts`
 - `frontend/src/stores/aiToolLogStore.ts`
+- `frontend/src/hooks/useAppData.ts`
+- `frontend/src/App.tsx`
 
 验收：设置页、连接页、SSH 工作区可共用 store，不再重复请求和散落状态。
 

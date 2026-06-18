@@ -3,13 +3,12 @@ import { HomeWorkspace } from "@/components/home/HomeWorkspace";
 import { SSHWorkspace } from "@/components/ssh/SSHWorkspace";
 import { useAppData } from "@/hooks/useAppData";
 import { parseRoute, type AppRoute } from "@/lib/routes";
-
-type HomeView = "connect" | "connections" | "settings" | "cloud";
+import { setHomeView, useSSHLayoutStore } from "@/stores/sshLayoutStore";
 
 export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => parseRoute());
-  const [homeView, setHomeView] = useState<HomeView>("connect");
   const appData = useAppData();
+  const layout = useSSHLayoutStore();
 
   useEffect(() => {
     const onHashChange = () => setRoute(parseRoute());
@@ -28,7 +27,7 @@ export default function App() {
       connections={appData.connections}
       savedCount={appData.savedCount}
       onlineCount={appData.onlineCount}
-      activeView={homeView}
+      activeView={layout.homeView}
       onViewChange={setHomeView}
       onReload={appData.reload}
     />
