@@ -16,6 +16,12 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  useEffect(() => {
+    if (route.name === "home") {
+      setHomeView(route.view);
+    }
+  }, [route]);
+
   if (route.name === "ssh") {
     return <SSHWorkspace groupID={route.groupID} activeConnID={route.activeConnID} />;
   }

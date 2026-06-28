@@ -191,17 +191,18 @@ export function DockviewWorkspace({ connID }: { connID: string }) {
 
   return (
     <div className={`dockview-shell ${theme}`}>
-      <div className="dockview-toolbar">
+      <aside className="left-sidebar">
+        <div className="tool-group">
         {workspacePanelDefinitions.map((definition) => {
           const Icon = definition.icon;
           return (
-            <Button key={definition.type} size="sm" variant="secondary" onClick={() => openPanel(definition.type)}>
+            <Button key={definition.type} size="icon" variant="ghost" title={definition.label} onClick={() => openPanel(definition.type)}>
               <Icon size={14} />
-              <span>{definition.label}</span>
             </Button>
           );
         })}
-      </div>
+        </div>
+      </aside>
 
       <div className="dockview-body">
         <DockviewReact

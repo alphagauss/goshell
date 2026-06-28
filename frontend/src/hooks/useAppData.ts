@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   configApi,
+  cloudApi,
   eventPayload,
   eventsApi,
   greetApi,
@@ -36,6 +37,15 @@ export function useAppData() {
       setConfig(nextConfig);
       setConfigSnapshot(nextConfig);
       document.documentElement.dataset.theme = nextConfig.ui?.theme ?? "dark";
+
+      const serverUrl = nextConfig.cloud?.serverUrl?.trim();
+      const token = nextConfig.cloud?.token?.trim();
+      if (serverUrl && token) {
+        const addr = serverUrl.replace(/^https?:\/\//, "");
+        void cloudApi.connect(addr, token).catch((error) => {
+          console.warn("[AppData] 云端自动连接失败:", error);
+        });
+      }
     }
     if (connectionsResult.status === "fulfilled") {
       const nextConnections = Array.isArray(connectionsResult.value) ? connectionsResult.value : [];
